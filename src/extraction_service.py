@@ -110,7 +110,10 @@ expiry_date:
 value = 2021-03-24
 source_line_ids = ["L4", "L5"]
 
-5. Never classify an unlabeled date as issue_date.
+
+5. ISSUE DATE RULE:
+
+Never classify an unlabeled date as issue_date.
 
 Only extract issue_date when OCR contains clear evidence such as:
 
@@ -118,6 +121,25 @@ ISSUED
 ISSUE DATE
 DATE ISSUED
 PRINT DATE
+PRINTDATE
+
+If the issue-date label and date appear on the same OCR line,
+that single line may support both the field context and value.
+
+Example:
+
+line_id = "L4"
+text = "PRINTDATE 01/01/2025"
+
+Correct:
+
+issue_date:
+value = 2025-01-01
+source_line_ids = ["L4"]
+
+Do not return issue_date = null when a clearly labelled
+issue or print date is present in OCR evidence.
+
 
 6. If the same date appears twice in different formats,
 do NOT assume they represent two different fields.
@@ -129,14 +151,18 @@ Example:
 
 These may be duplicate representations of the same date.
 
+
 7. Preserve licence numbers and ID numbers exactly
 as shown by OCR.
 
+
 8. Normalize clearly supported dates to YYYY-MM-DD.
+
 
 9. If a date is ambiguous, return null.
 
-10. Document classification rules:
+
+10. DOCUMENT CLASSIFICATION RULES:
 
 - If the document contains
   "Security Industry Authority"
@@ -150,17 +176,194 @@ as shown by OCR.
 
 - Otherwise return "unknown".
 
-11. Do not generate confidence scores.
 
-12. Ignore decorative or irrelevant OCR text.
+FIELD MAPPING RULES:
 
-13. Never fill a field simply because the schema contains it.
-Missing information must be returned as null.
 
-14. source_line_ids must contain ONLY exact line IDs
+A. SIA BADGE
+
+For an SIA badge:
+
+- A number associated with the label "LICENCE"
+  must be extracted as licence_number,
+  not id_number.
+
+- If OCR contains a licence number that is clearly
+  associated with the word "LICENCE",
+  extract it as licence_number.
+
+- Do not populate id_number for an SIA badge unless
+  the document explicitly identifies a separate value
+  as an ID number.
+
+Example:
+
+L0 -> 1099 4265 1706 9065
+L1 -> LICENCE
+
+Correct:
+
+licence_number = "1099 4265 1706 9065"
+source_line_ids = ["L1", "L0"]
+
+id_number = null
+
+
+B. GUARD / PRIVATE SECURITY LICENCE
+
+For a guard_license:
+
+- A number associated with labels such as:
+
+  LICENSE
+  LICENCE
+  LICENSE NUMBER
+  LICENCE NUMBER
+
+  must be extracted as licence_number.
+
+- Do NOT classify an isolated numeric value as id_number.
+
+- Do NOT assume that every additional number appearing
+  on the document is an ID number.
+
+- Only extract id_number when OCR explicitly identifies
+  the number as an ID number, identification number,
+  identity number, or equivalent clear context.
+
+Example:
+
+L5 -> LICENSE
+L6 -> 12345678
+L13 -> 2301
+
+Correct:
+
+licence_number = "12345678"
+source_line_ids = ["L5", "L6"]
+
+id_number = null
+
+Incorrect:
+
+id_number = "2301"
+
+because "2301" has no explicit ID label or clear ID context.
+
+Unlabelled numeric OCR values must be ignored unless their
+meaning is established by explicit document context.
+
+
+C. NATIONAL IDENTITY CARD
+
+For a national identity card:
+
+- The primary identity/document number should normally
+  be mapped to id_number, not licence_number.
+
+- Do not populate licence_number unless the document
+  explicitly represents a licence.
+
+- An identity-card number may be extracted as id_number
+  when the document type and surrounding OCR context
+  clearly establish that it is the primary identity number.
+
+Never interchange licence_number and id_number merely because
+both fields contain numeric identifiers.
+
+
+11. ISSUER EXTRACTION RULE:
+
+Extract issuer only when the OCR clearly identifies an organization
+or authority responsible for issuing the document.
+
+A country name, national slogan, government heading,
+document title, republic name, or decorative header alone
+must NOT be treated as the issuer.
+
+
+For an SIA badge:
+
+If "Security Industry Authority" appears in OCR,
+extract:
+
+issuer = "Security Industry Authority"
+
+using the exact OCR line containing that organization.
+
+
+For a security licence:
+
+If OCR explicitly contains evidence such as:
+
+"ISSUED BY TX DPS"
+
+the issuer may be extracted as:
+
+issuer = "TX DPS"
+
+using that source line.
+
+
+For an identity card:
+
+Do NOT infer the issuer from the country name,
+national heading, republic name, document title,
+or general government wording.
+
+If a specific issuing authority is not clearly visible
+in OCR, return:
+
+issuer = null
+
+Never guess the issuer from general document context alone.
+
+
+12. DATE OF BIRTH RULE:
+
+Only extract date_of_birth when OCR evidence or sufficiently
+clear document context identifies a date as the person's
+date of birth.
+
+Strong labels include:
+
+DOB
+DATE OF BIRTH
+BIRTH DATE
+
+Do not assign an arbitrary or unrelated date to date_of_birth.
+
+If the visible date is likely a DOB based on document structure
+but the OCR evidence does not provide reliable semantic context,
+use only the available OCR line IDs and do not invent supporting
+labels.
+
+Downstream evidence validation may determine whether the
+semantic context is strong enough.
+
+
+13. Do not generate confidence scores.
+
+Confidence is calculated separately from OCR evidence.
+
+
+14. Ignore decorative, corrupted, or irrelevant OCR text
+that does not clearly support a schema field.
+
+
+15. Never fill a field simply because the schema contains it.
+
+Missing or unsupported information must be returned as null.
+
+
+SOURCE LINE ID RULES:
+
+
+16. source_line_ids must contain ONLY exact line IDs
 that exist in the provided OCR input.
 
-15. OCR line IDs are strings in this format:
+
+17. OCR line IDs are strings in this format:
 
 "L0"
 "L1"
@@ -171,7 +374,9 @@ that exist in the provided OCR input.
 
 You MUST copy these IDs exactly.
 
-16. Never concatenate, modify, invent, or transform line IDs.
+
+18. Never concatenate, modify, invent,
+or transform line IDs.
 
 Example:
 
@@ -182,18 +387,23 @@ line_id = "L5"
 text = "24 MAR 2021"
 
 Correct:
+
 source_line_ids = ["L4", "L5"]
 
 Incorrect:
+
 source_line_ids = ["L45"]
 
 Incorrect:
+
 source_line_ids = ["4", "5"]
 
 Incorrect:
+
 source_line_ids = [4, 5]
 
-17. For fields where both a label and value are available,
+
+19. For fields where both a label and value are available,
 include BOTH line IDs separately.
 
 Example:
@@ -202,13 +412,66 @@ Example:
 "L5" -> 24 MAR 2021
 
 Correct:
+
 source_line_ids = ["L4", "L5"]
 
-18. Every source_line_id must exactly match one of the
+
+20. Every source_line_id must exactly match one of the
 line_id values supplied in the OCR input.
 
-19. Never create a source_line_id that was not present
+
+21. Never create a source_line_id that was not present
 in the OCR input.
+
+
+22. FIELD SUPPORT RULE:
+
+A field value is not considered supported merely because
+the same text or number appears somewhere in OCR.
+
+The OCR evidence must also support the semantic meaning
+of the field whenever that meaning requires context.
+
+Examples:
+
+"2301"
+
+does NOT automatically mean:
+
+id_number = "2301"
+
+because there is no ID context.
+
+Similarly:
+
+"01/01/2025"
+
+does NOT automatically mean issue_date unless labels such as
+PRINTDATE, PRINT DATE, ISSUED, or ISSUE DATE establish its meaning.
+
+
+23. PREFER NULL OVER GUESSING:
+
+When there is uncertainty between:
+
+- licence_number vs id_number
+- expiry_date vs issue_date
+- issuer vs general government heading
+- meaningful field vs irrelevant OCR number
+
+return null for the unsupported field rather than guessing.
+
+
+24. FINAL EXTRACTION PRINCIPLE:
+
+Your output must reflect what the OCR evidence proves,
+not what a typical document might normally contain.
+
+Do not use assumptions about document templates to fill
+missing fields.
+
+Only use document context when it clearly establishes
+the meaning of OCR evidence.
 """
 
 

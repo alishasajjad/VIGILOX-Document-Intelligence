@@ -1,3 +1,11 @@
+from src.document_anomaly_validator import (
+    DocumentAnomalyValidator,
+)
+
+from src.date_logical_validator import DateLogicalValidator
+
+from src.confidence_service import ConfidenceService
+
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -36,13 +44,22 @@ evidence_validator = (
     EvidenceValidator()
 )
 
+confidence_service = ConfidenceService()
+
+date_logical_validator = DateLogicalValidator()
+
+document_anomaly_validator = (
+    DocumentAnomalyValidator(
+        low_confidence_threshold=0.90
+    )
+)
 
 # ==========================================================
 # DOCUMENT
 # ==========================================================
 
 image_path = (
-    "samples/sia_badge.jpg"
+    "samples/guard_license.jpg"
 )
 
 
@@ -136,3 +153,182 @@ else:
     print(
         "All evidence references are valid."
     )
+
+confidence_results = confidence_service.calculate(
+    structured,
+    ocr_lines,
+    flags,
+)
+
+print(
+    "\n========== FIELD CONFIDENCE ==========\n"
+)
+
+
+for field_name, result in confidence_results.items():
+
+    confidence = result["confidence"]
+
+
+    if confidence is None:
+
+        confidence_text = "N/A"
+
+    else:
+
+        confidence_text = (
+            f"{confidence:.2%}"
+        )
+
+
+    print(
+        f"{field_name:<20}"
+        f"{str(result['value']):<35}"
+        f"{confidence_text:<10}"
+        f"{result['status']}"
+    )
+
+date_validation = (
+    date_logical_validator.validate(
+        structured,
+        confidence_results,
+    )
+)
+
+
+print(
+    "\n========== DATE & LOGICAL VALIDATION ==========\n"
+)
+
+
+print(
+    f"Reference Date: "
+    f"{date_validation['reference_date']}"
+)
+
+
+print(
+    "\nDate Fields:"
+)
+
+
+for field_name, result in (
+    date_validation["date_fields"].items()
+):
+
+    print(
+        f"{field_name:<20}"
+        f"{str(result['value']):<15}"
+        f"{result['status']}"
+    )
+
+
+print(
+    "\nExpiry Status:"
+)
+
+
+expiry = date_validation["expiry"]
+
+
+print(
+    f"Value: "
+    f"{expiry['value']}"
+)
+
+print(
+    f"Status: "
+    f"{expiry['status']}"
+)
+
+print(
+    f"Days Until Expiry: "
+    f"{expiry['days_until_expiry']}"
+)
+
+
+print(
+    "\nLogical Issues:"
+)
+
+
+if date_validation["logical_issues"]:
+
+    for issue in (
+        date_validation[
+            "logical_issues"
+        ]
+    ):
+
+        print(
+            f"[REVIEW] "
+            f"{issue['code']} - "
+            f"{issue['message']}"
+        )
+
+else:
+
+    print(
+        "No logical date issues found."
+    )
+
+anomaly_result = (
+    document_anomaly_validator.validate(
+        structured,
+        confidence_results,
+        date_validation,
+    )
+)
+
+print(
+    "\n========== DOCUMENT ANOMALY VALIDATION ==========\n"
+)
+
+
+print(
+    f"Document Type: "
+    f"{anomaly_result['document_type']}"
+)
+
+print(
+    f"Valid: "
+    f"{anomaly_result['valid']}"
+)
+
+print(
+    f"Has Anomalies: "
+    f"{anomaly_result['has_anomalies']}"
+)
+
+print(
+    f"Errors: "
+    f"{anomaly_result['error_count']}"
+)
+
+print(
+    f"Warnings: "
+    f"{anomaly_result['warning_count']}"
+)
+
+
+print(
+    "\nIssues:"
+)
+
+
+if anomaly_result["issues"]:
+
+    for issue in anomaly_result["issues"]:
+
+        print(
+            f"[{issue['severity']}] "
+            f"{issue['code']} "
+            f"- {issue['message']}"
+        )
+
+else:
+
+    print(
+        "No document anomalies detected."
+    )
+
