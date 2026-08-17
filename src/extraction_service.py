@@ -660,7 +660,7 @@ OCR INPUT:
 
                         # Gives enough room for a valid
                         # structured JSON response.
-                        max_completion_tokens=4096,
+                        max_completion_tokens=2048,
 
                         response_format={
                             "type": "json_schema",
