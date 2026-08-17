@@ -1,3 +1,7 @@
+from src.review_decision_service import (
+    ReviewDecisionService,
+)
+
 from src.document_anomaly_validator import (
     DocumentAnomalyValidator,
 )
@@ -54,12 +58,16 @@ document_anomaly_validator = (
     )
 )
 
+review_decision_service = (
+    ReviewDecisionService()
+)
+
 # ==========================================================
 # DOCUMENT
 # ==========================================================
 
 image_path = (
-    "samples/guard_license.jpg"
+    "samples/id_card.jpg"
 )
 
 
@@ -332,3 +340,51 @@ else:
         "No document anomalies detected."
     )
 
+review_result = (
+    review_decision_service.decide(
+        anomaly_result
+    )
+)
+
+
+print(
+    "\n========== HUMAN REVIEW DECISION ==========\n"
+)
+
+
+print(
+    f"Decision: "
+    f"{review_result['decision']}"
+)
+
+print(
+    f"Review Required: "
+    f"{review_result['review_required']}"
+)
+
+print(
+    f"Priority: "
+    f"{review_result['priority']}"
+)
+
+
+print(
+    "\nReasons:"
+)
+
+
+if review_result["reason_codes"]:
+
+    for code in (
+        review_result["reason_codes"]
+    ):
+
+        print(
+            f"- {code}"
+        )
+
+else:
+
+    print(
+        "No review reasons."
+    )
