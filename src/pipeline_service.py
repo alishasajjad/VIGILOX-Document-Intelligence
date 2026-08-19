@@ -1,3 +1,5 @@
+from datetime import date
+
 from src.ocr_service import OCRService
 from src.extraction_service import ExtractionService
 from src.evidence_validator import EvidenceValidator
@@ -11,31 +13,68 @@ class DocumentPipelineService:
 
     def __init__(self):
 
-        self.ocr_service = OCRService()
+        # ==================================================
+        # PHASE 1 — OCR SERVICE
+        # ==================================================
+
+        self.ocr_service = (
+            OCRService()
+        )
+
+
+        # ==================================================
+        # PHASE 2 — STRUCTURED EXTRACTION SERVICE
+        # ==================================================
 
         self.extraction_service = (
             ExtractionService()
         )
 
+
+        # ==================================================
+        # PHASE 3 — EVIDENCE VALIDATION SERVICE
+        # ==================================================
+
         self.evidence_validator = (
             EvidenceValidator()
         )
+
+
+        # ==================================================
+        # PHASE 4A — FIELD CONFIDENCE SERVICE
+        # ==================================================
 
         self.confidence_service = (
             ConfidenceService()
         )
 
+
+        # ==================================================
+        # PHASE 4B — DATE / LOGICAL VALIDATION SERVICE
+        # ==================================================
+
         self.date_logical_validator = (
             DateLogicalValidator()
         )
+
+
+        # ==================================================
+        # PHASE 4C — DOCUMENT ANOMALY SERVICE
+        # ==================================================
 
         self.document_anomaly_validator = (
             DocumentAnomalyValidator()
         )
 
+
+        # ==================================================
+        # PHASE 5A — MACHINE REVIEW DECISION SERVICE
+        # ==================================================
+
         self.review_decision_service = (
             ReviewDecisionService()
         )
+
 
     # ======================================================
     # PROCESS DOCUMENT
@@ -44,7 +83,23 @@ class DocumentPipelineService:
     def process(
         self,
         image_path: str,
+        reference_date: date | None = None,
     ) -> dict:
+
+        """
+        Run the complete VIGILOX document intelligence
+        pipeline for a single document image.
+
+        reference_date:
+            Optional fixed date used by the date/logical
+            validator.
+
+            If None, the validator uses the current date.
+
+            A fixed reference date is useful for research
+            evaluation so expiry results remain reproducible.
+        """
+
 
         # ==================================================
         # PHASE 1 — OCR
@@ -56,6 +111,7 @@ class DocumentPipelineService:
             )
         )
 
+
         # ==================================================
         # PHASE 2 — STRUCTURED EXTRACTION
         # ==================================================
@@ -65,6 +121,7 @@ class DocumentPipelineService:
                 ocr_lines
             )
         )
+
 
         # ==================================================
         # PHASE 3 — EVIDENCE VALIDATION
@@ -76,6 +133,7 @@ class DocumentPipelineService:
                 ocr_lines,
             )
         )
+
 
         # ==================================================
         # PHASE 4A — FIELD CONFIDENCE
@@ -89,6 +147,7 @@ class DocumentPipelineService:
             )
         )
 
+
         # ==================================================
         # PHASE 4B — DATE / LOGICAL VALIDATION
         # ==================================================
@@ -97,8 +156,10 @@ class DocumentPipelineService:
             self.date_logical_validator.validate(
                 extraction,
                 confidence_results,
+                reference_date=reference_date,
             )
         )
+
 
         # ==================================================
         # PHASE 4C — DOCUMENT ANOMALIES
@@ -112,6 +173,7 @@ class DocumentPipelineService:
             )
         )
 
+
         # ==================================================
         # PHASE 5A — MACHINE REVIEW DECISION
         # ==================================================
@@ -122,11 +184,13 @@ class DocumentPipelineService:
             )
         )
 
+
         # ==================================================
         # COMPLETE RESULT
         # ==================================================
 
         return {
+
             "extraction":
                 extraction.model_dump(),
 

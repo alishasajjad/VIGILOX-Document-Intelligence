@@ -1,0 +1,205 @@
+{
+  "evaluation": {
+    "reference_date": "2026-08-18",
+    "ground_truth_documents": 63,
+    "raw_prediction_records": 64,
+    "canonical_successful_predictions": 63,
+    "infrastructure_failed_attempts": 1
+  },
+  "document_classification": {
+    "correct": 63,
+    "total": 63,
+    "accuracy_percent": 100.0
+  },
+  "field_accuracy": {
+    "all_fields": {
+      "total": 441,
+      "exact_matches": 423,
+      "exact_accuracy_percent": 95.92,
+      "normalized_matches": 435,
+      "normalized_accuracy_percent": 98.64
+    },
+    "known_non_null_fields": {
+      "total": 332,
+      "exact_matches": 315,
+      "exact_accuracy_percent": 94.88,
+      "normalized_matches": 327,
+      "normalized_accuracy_percent": 98.49
+    },
+    "critical_fields": {
+      "total": 168,
+      "normalized_matches": 167,
+      "normalized_accuracy_percent": 99.4
+    }
+  },
+  "null_handling": {
+    "ground_truth_null_fields": 109,
+    "correct_nulls": 108,
+    "correct_null_rate_percent": 99.08,
+    "hallucinations": 1,
+    "hallucination_rate_percent": 0.92,
+    "ground_truth_known_fields": 332,
+    "missed_known_fields": 1,
+    "missed_known_field_rate_percent": 0.3
+  },
+  "document_level": {
+    "fully_correct_documents": 59,
+    "incorrect_documents": 4,
+    "fully_correct_rate_percent": 93.65
+  },
+  "review_decisions": {
+    "distribution": {
+      "REVIEW_REQUIRED": 36,
+      "AUTO_ACCEPT": 27
+    },
+    "priority_distribution": {
+      "MEDIUM": 33,
+      "NONE": 27,
+      "LOW": 1,
+      "HIGH": 2
+    },
+    "auto_accept_count": 27,
+    "review_required_count": 36,
+    "false_auto_accept_count": 0,
+    "false_auto_accept_rate_among_auto_accepts_percent": 0.0,
+    "false_auto_accept_rate_overall_percent": 0.0,
+    "safe_escalation_count": 4,
+    "safe_escalation_rate_among_incorrect_documents_percent": 100.0
+  },
+  "field_confidence_status_distribution": {
+    "VALID": 322,
+    "NOT_EXTRACTED": 109,
+    "INVALID_EVIDENCE": 10
+  },
+  "per_document_type": {
+    "guard_license": {
+      "documents": 21,
+      "document_type_accuracy_percent": 100.0,
+      "all_field_exact_accuracy_percent": 97.28,
+      "all_field_normalized_accuracy_percent": 97.28,
+      "known_field_normalized_accuracy_percent": 96.83,
+      "fully_correct_documents": 19,
+      "fully_correct_document_rate_percent": 90.48
+    },
+    "id_card": {
+      "documents": 21,
+      "document_type_accuracy_percent": 100.0,
+      "all_field_exact_accuracy_percent": 98.64,
+      "all_field_normalized_accuracy_percent": 98.64,
+      "known_field_normalized_accuracy_percent": 99.18,
+      "fully_correct_documents": 19,
+      "fully_correct_document_rate_percent": 90.48
+    },
+    "sia_badge": {
+      "documents": 21,
+      "document_type_accuracy_percent": 100.0,
+      "all_field_exact_accuracy_percent": 91.84,
+      "all_field_normalized_accuracy_percent": 100.0,
+      "known_field_normalized_accuracy_percent": 100.0,
+      "fully_correct_documents": 21,
+      "fully_correct_document_rate_percent": 100.0
+    }
+  },
+  "per_field": {
+    "full_name": {
+      "total": 63,
+      "known_ground_truth": 63,
+      "null_ground_truth": 0,
+      "exact_accuracy_percent": 100.0,
+      "normalized_accuracy_percent": 100.0,
+      "known_normalized_accuracy_percent": 100.0,
+      "hallucinations": 0,
+      "missed_known_fields": 0
+    },
+    "licence_number": {
+      "total": 63,
+      "known_ground_truth": 42,
+      "null_ground_truth": 21,
+      "exact_accuracy_percent": 100.0,
+      "normalized_accuracy_percent": 100.0,
+      "known_normalized_accuracy_percent": 100.0,
+      "hallucinations": 0,
+      "missed_known_fields": 0
+    },
+    "id_number": {
+      "total": 63,
+      "known_ground_truth": 21,
+      "null_ground_truth": 42,
+      "exact_accuracy_percent": 100.0,
+      "normalized_accuracy_percent": 100.0,
+      "known_normalized_accuracy_percent": 100.0,
+      "hallucinations": 0,
+      "missed_known_fields": 0
+    },
+    "expiry_date": {
+      "total": 63,
+      "known_ground_truth": 62,
+      "null_ground_truth": 1,
+      "exact_accuracy_percent": 98.41,
+      "normalized_accuracy_percent": 98.41,
+      "known_normalized_accuracy_percent": 98.39,
+      "hallucinations": 0,
+      "missed_known_fields": 0
+    },
+    "date_of_birth": {
+      "total": 63,
+      "known_ground_truth": 41,
+      "null_ground_truth": 22,
+      "exact_accuracy_percent": 96.83,
+      "normalized_accuracy_percent": 96.83,
+      "known_normalized_accuracy_percent": 97.56,
+      "hallucinations": 1,
+      "missed_known_fields": 0
+    },
+    "issue_date": {
+      "total": 63,
+      "known_ground_truth": 41,
+      "null_ground_truth": 22,
+      "exact_accuracy_percent": 98.41,
+      "normalized_accuracy_percent": 98.41,
+      "known_normalized_accuracy_percent": 97.56,
+      "hallucinations": 0,
+      "missed_known_fields": 0
+    },
+    "issuer": {
+      "total": 63,
+      "known_ground_truth": 62,
+      "null_ground_truth": 1,
+      "exact_accuracy_percent": 77.78,
+      "normalized_accuracy_percent": 96.83,
+      "known_normalized_accuracy_percent": 96.77,
+      "hallucinations": 0,
+      "missed_known_fields": 1
+    }
+  },
+  "runtime": {
+    "count": 63,
+    "mean_seconds": 28.3948,
+    "median_seconds": 25.37,
+    "minimum_seconds": 16.6861,
+    "maximum_seconds": 49.338
+  },
+  "runtime_by_document_type": {
+    "guard_license": {
+      "count": 21,
+      "mean_seconds": 25.0059,
+      "median_seconds": 25.3011,
+      "minimum_seconds": 18.3008,
+      "maximum_seconds": 26.0854
+    },
+    "sia_badge": {
+      "count": 21,
+      "mean_seconds": 20.3988,
+      "median_seconds": 18.5992,
+      "minimum_seconds": 16.6861,
+      "maximum_seconds": 45.2972
+    },
+    "id_card": {
+      "count": 21,
+      "mean_seconds": 39.7797,
+      "median_seconds": 42.2565,
+      "minimum_seconds": 19.5642,
+      "maximum_seconds": 49.338
+    }
+  }
+}
