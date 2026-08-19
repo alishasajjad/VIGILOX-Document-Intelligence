@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        VIGILOX Review Dashboard
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="/review/static/dashboard.css"
+    >
+
+</head>
+
+
+<body>
+
+    <div class="app-shell">
+
+        <!-- ============================================= -->
+        <!-- SIDEBAR -->
+        <!-- ============================================= -->
+
+        <aside class="sidebar">
+
+            <div class="brand">
+
+                <div class="brand-mark">
+                    V
+                </div>
+
+                <div>
+
+                    <div class="brand-name">
+                        VIGILOX
+                    </div>
+
+                    <div class="brand-subtitle">
+                        Document Intelligence
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <nav class="navigation">
+
+                <a
+                    href="/review"
+                    class="nav-item active"
+                >
+                    Review Queue
+                </a>
+
+            </nav>
+
+
+            <div class="sidebar-footer">
+
+                <div class="system-status">
+
+                    <span
+                        id="status-indicator"
+                        class="status-dot"
+                    ></span>
+
+                    <span id="status-text">
+                        Checking API...
+                    </span>
+
+                </div>
+
+            </div>
+
+        </aside>
+
+
+        <!-- ============================================= -->
+        <!-- MAIN CONTENT -->
+        <!-- ============================================= -->
+
+        <main class="main-content">
+
+            <!-- ========================================= -->
+            <!-- PAGE HEADER -->
+            <!-- ========================================= -->
+
+            <header class="page-header">
+
+                <div>
+
+                    <p class="eyebrow">
+                        HUMAN REVIEW
+                    </p>
+
+                    <h1>
+                        Review Queue
+                    </h1>
+
+                    <p class="page-description">
+                        Inspect machine-flagged documents
+                        and complete human verification.
+                    </p>
+
+                </div>
+
+
+                <div class="header-actions">
+
+                    <button
+                        id="refresh-button"
+                        class="secondary-button"
+                        type="button"
+                    >
+                        Refresh
+                    </button>
+
+                </div>
+
+            </header>
+
+
+            <!-- ========================================= -->
+            <!-- SUMMARY -->
+            <!-- ========================================= -->
+
+            <section class="summary-grid">
+
+                <article class="summary-card">
+
+                    <span class="summary-label">
+                        Pending Reviews
+                    </span>
+
+                    <strong
+                        id="pending-count"
+                        class="summary-value"
+                    >
+                        —
+                    </strong>
+
+                </article>
+
+
+                <article class="summary-card">
+
+                    <span class="summary-label">
+                        High Priority
+                    </span>
+
+                    <strong
+                        id="high-count"
+                        class="summary-value"
+                    >
+                        —
+                    </strong>
+
+                </article>
+
+
+                <article class="summary-card">
+
+                    <span class="summary-label">
+                        Medium Priority
+                    </span>
+
+                    <strong
+                        id="medium-count"
+                        class="summary-value"
+                    >
+                        —
+                    </strong>
+
+                </article>
+
+
+                <article class="summary-card">
+
+                    <span class="summary-label">
+                        Low Priority
+                    </span>
+
+                    <strong
+                        id="low-count"
+                        class="summary-value"
+                    >
+                        —
+                    </strong>
+
+                </article>
+
+            </section>
+
+
+            <!-- ========================================= -->
+            <!-- REVIEW QUEUE PANEL -->
+            <!-- ========================================= -->
+
+            <section class="panel">
+
+                <div class="panel-header queue-panel-header">
+
+                    <div>
+
+                        <h2>
+                            Documents Requiring Review
+                        </h2>
+
+                        <p>
+                            Pending machine-flagged cases,
+                            ordered by review priority.
+                        </p>
+
+                    </div>
+
+
+                    <!-- ================================= -->
+                    <!-- FILTERS -->
+                    <!-- ================================= -->
+
+                    <div class="queue-filters">
+
+                        <select
+                            id="priority-filter"
+                            class="filter-control"
+                            aria-label="Priority filter"
+                        >
+
+                            <option value="">
+                                All Priorities
+                            </option>
+
+                            <option value="HIGH">
+                                High
+                            </option>
+
+                            <option value="MEDIUM">
+                                Medium
+                            </option>
+
+                            <option value="LOW">
+                                Low
+                            </option>
+
+                        </select>
+
+
+                        <select
+                            id="document-type-filter"
+                            class="filter-control"
+                            aria-label="Document type filter"
+                        >
+
+                            <option value="">
+                                All Document Types
+                            </option>
+
+                            <option value="guard_license">
+                                Guard License
+                            </option>
+
+                            <option value="sia_badge">
+                                SIA Badge
+                            </option>
+
+                            <option value="id_card">
+                                ID Card
+                            </option>
+
+                        </select>
+
+                    </div>
+
+                </div>
+
+
+                <!-- ===================================== -->
+                <!-- LOADING -->
+                <!-- ===================================== -->
+
+                <div
+                    id="queue-loading"
+                    class="queue-state"
+                    hidden
+                >
+
+                    <div class="loading-spinner"></div>
+
+                    <p>
+                        Loading review queue...
+                    </p>
+
+                </div>
+
+
+                <!-- ===================================== -->
+                <!-- ERROR -->
+                <!-- ===================================== -->
+
+                <div
+                    id="queue-error"
+                    class="queue-state"
+                    hidden
+                >
+
+                    <div class="state-icon error-icon">
+                        !
+                    </div>
+
+                    <h3>
+                        Unable to load review queue
+                    </h3>
+
+                    <p id="queue-error-message">
+                        Please try again.
+                    </p>
+
+                </div>
+
+
+                <!-- ===================================== -->
+                <!-- EMPTY -->
+                <!-- ===================================== -->
+
+                <div
+                    id="queue-empty"
+                    class="queue-state"
+                    hidden
+                >
+
+                    <div class="state-icon success-icon">
+                        ✓
+                    </div>
+
+                    <h3>
+                        No pending reviews
+                    </h3>
+
+                    <p>
+                        There are currently no documents
+                        matching the selected filters.
+                    </p>
+
+                </div>
+
+
+                <!-- ===================================== -->
+                <!-- QUEUE TABLE -->
+                <!-- ===================================== -->
+
+                <div
+                    id="queue-table-container"
+                    class="table-container"
+                    hidden
+                >
+
+                    <table class="review-table">
+
+                        <thead>
+
+                            <tr>
+
+                                <th>
+                                    Document
+                                </th>
+
+                                <th>
+                                    Type
+                                </th>
+
+                                <th>
+                                    Priority
+                                </th>
+
+                                <th>
+                                    Reasons
+                                </th>
+
+                                <th>
+                                    Created
+                                </th>
+
+                                <th>
+                                    Action
+                                </th>
+
+                            </tr>
+
+                        </thead>
+
+
+                        <tbody id="queue-table-body">
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </section>
+
+        </main>
+
+    </div>
+
+
+    <script
+        src="/review/static/dashboard.js"
+    ></script>
+
+</body>
+
+</html>

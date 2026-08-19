@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        VIGILOX Document Review
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="/review/static/dashboard.css"
+    >
+
+</head>
+
+
+<body>
+
+    <div class="app-shell">
+
+        <!-- ============================================= -->
+        <!-- SIDEBAR -->
+        <!-- ============================================= -->
+
+        <aside class="sidebar">
+
+            <div class="brand">
+
+                <div class="brand-mark">
+                    V
+                </div>
+
+                <div>
+
+                    <div class="brand-name">
+                        VIGILOX
+                    </div>
+
+                    <div class="brand-subtitle">
+                        Document Intelligence
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <nav class="navigation">
+
+                <a
+                    href="/review"
+                    class="nav-item"
+                >
+                    ← Review Queue
+                </a>
+
+            </nav>
+
+
+            <div class="sidebar-footer">
+
+                <div class="system-status">
+
+                    <span
+                        id="status-indicator"
+                        class="status-dot"
+                    ></span>
+
+                    <span id="status-text">
+                        Checking API...
+                    </span>
+
+                </div>
+
+            </div>
+
+        </aside>
+
+
+        <!-- ============================================= -->
+        <!-- MAIN -->
+        <!-- ============================================= -->
+
+        <main class="main-content">
+
+            <!-- ========================================= -->
+            <!-- HEADER -->
+            <!-- ========================================= -->
+
+            <header class="page-header">
+
+                <div>
+
+                    <p class="eyebrow">
+                        DOCUMENT REVIEW
+                    </p>
+
+                    <h1 id="document-title">
+                        Loading document...
+                    </h1>
+
+                    <p
+                        id="document-subtitle"
+                        class="page-description"
+                    >
+                        Loading machine analysis.
+                    </p>
+
+                </div>
+
+
+                <div class="header-actions">
+
+                    <a
+                        href="/review"
+                        class="secondary-link-button"
+                    >
+                        Back to Queue
+                    </a>
+
+                </div>
+
+            </header>
+
+
+            <!-- ========================================= -->
+            <!-- LOADING -->
+            <!-- ========================================= -->
+
+            <section
+                id="detail-loading"
+                class="panel"
+            >
+
+                <div class="queue-state">
+
+                    <div class="loading-spinner"></div>
+
+                    <p>
+                        Loading document review...
+                    </p>
+
+                </div>
+
+            </section>
+
+
+            <!-- ========================================= -->
+            <!-- ERROR -->
+            <!-- ========================================= -->
+
+            <section
+                id="detail-error"
+                class="panel"
+                hidden
+            >
+
+                <div class="queue-state">
+
+                    <div class="state-icon error-icon">
+                        !
+                    </div>
+
+                    <h3>
+                        Unable to load document
+                    </h3>
+
+                    <p id="detail-error-message">
+                        Please return to the review queue.
+                    </p>
+
+                </div>
+
+            </section>
+
+
+            <!-- ========================================= -->
+            <!-- REVIEW CONTENT -->
+            <!-- ========================================= -->
+
+            <section
+                id="detail-content"
+                class="review-detail-layout"
+                hidden
+            >
+
+                <!-- ===================================== -->
+                <!-- LEFT SIDE -->
+                <!-- ===================================== -->
+
+                <section
+                    class="panel document-preview-panel"
+                >
+
+                    <div class="panel-header">
+
+                        <div>
+
+                            <h2>
+                                Original Document
+                            </h2>
+
+                            <p>
+                                Uploaded source used by the
+                                machine analysis.
+                            </p>
+
+                        </div>
+
+                    </div>
+
+
+                    <div
+                        id="document-preview"
+                        class="document-preview"
+                    >
+
+                        <img
+                            id="original-document-image"
+                            alt="Original uploaded document"
+                            hidden
+                        >
+
+
+                        <div
+                            id="image-unavailable"
+                            class="image-unavailable"
+                            hidden
+                        >
+
+                            <div class="state-icon">
+                                !
+                            </div>
+
+                            <h3>
+                                Original image unavailable
+                            </h3>
+
+                            <p>
+                                This may be a legacy document
+                                processed before permanent
+                                source-image storage was enabled.
+                            </p>
+
+                        </div>
+
+                    </div>
+
+                </section>
+
+
+                <!-- ===================================== -->
+                <!-- RIGHT SIDE -->
+                <!-- ===================================== -->
+
+                <div class="review-detail-right">
+
+                    <!-- ================================= -->
+                    <!-- MACHINE DECISION -->
+                    <!-- ================================= -->
+
+                    <section class="panel">
+
+                        <div class="panel-header">
+
+                            <h2>
+                                Machine Review Decision
+                            </h2>
+
+                        </div>
+
+
+                        <div class="detail-section">
+
+                            <div class="decision-summary">
+
+                                <div>
+
+                                    <span class="detail-label">
+                                        Decision
+                                    </span>
+
+                                    <strong
+                                        id="machine-decision"
+                                        class="detail-value"
+                                    >
+                                        —
+                                    </strong>
+
+                                </div>
+
+
+                                <div>
+
+                                    <span class="detail-label">
+                                        Priority
+                                    </span>
+
+                                    <div id="machine-priority">
+                                        —
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+
+                            <div class="detail-block">
+
+                                <span class="detail-label">
+                                    Reason Codes
+                                </span>
+
+                                <div
+                                    id="machine-reasons"
+                                    class="reason-list detail-reasons"
+                                >
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    </section>
+
+
+                    <!-- ================================= -->
+                    <!-- EXTRACTION -->
+                    <!-- ================================= -->
+
+                    <section class="panel">
+
+                        <div class="panel-header">
+
+                            <div>
+
+                                <h2>
+                                    Extracted Fields
+                                </h2>
+
+                                <p>
+                                    Machine-extracted values
+                                    with supporting OCR evidence.
+                                </p>
+
+                            </div>
+
+                        </div>
+
+
+                        <div
+                            id="extraction-fields"
+                            class="extraction-fields"
+                        >
+                        </div>
+
+                    </section>
+
+
+                    <!-- ================================= -->
+                    <!-- VALIDATION -->
+                    <!-- ================================= -->
+
+                    <section class="panel">
+
+                        <div class="panel-header">
+
+                            <div>
+
+                                <h2>
+                                    Validation Findings
+                                </h2>
+
+                                <p>
+                                    Anomalies and validation
+                                    issues identified by the
+                                    machine pipeline.
+                                </p>
+
+                            </div>
+
+                        </div>
+
+
+                        <div
+                            id="anomaly-list"
+                            class="issue-list"
+                        >
+                        </div>
+
+                    </section>
+
+
+                    <!-- ================================= -->
+                    <!-- HUMAN REVIEW -->
+                    <!-- PHASE 7B.8 -->
+                    <!-- ================================= -->
+
+                    <section
+                        id="human-review-panel"
+                        class="panel"
+                    >
+
+                        <div class="panel-header">
+
+                            <div>
+
+                                <h2>
+                                    Human Review
+                                </h2>
+
+                                <p>
+                                    Approve, reject or correct
+                                    the machine-extracted result.
+                                </p>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="human-review-form">
+
+                            <!-- ========================= -->
+                            <!-- REVIEWER -->
+                            <!-- ========================= -->
+
+                            <div class="form-group">
+
+                                <label
+                                    for="reviewer-id"
+                                    class="form-label"
+                                >
+                                    Reviewer ID
+                                    <span class="required-mark">
+                                        *
+                                    </span>
+                                </label>
+
+                                <input
+                                    id="reviewer-id"
+                                    type="text"
+                                    class="form-control"
+                                    maxlength="100"
+                                    placeholder="e.g. reviewer-001"
+                                    autocomplete="off"
+                                >
+
+                            </div>
+
+
+                            <!-- ========================= -->
+                            <!-- NOTES -->
+                            <!-- ========================= -->
+
+                            <div class="form-group">
+
+                                <label
+                                    for="review-notes"
+                                    class="form-label"
+                                >
+                                    Review Notes
+                                </label>
+
+                                <textarea
+                                    id="review-notes"
+                                    class="form-control review-notes"
+                                    rows="4"
+                                    placeholder="Optional reviewer notes..."
+                                ></textarea>
+
+                            </div>
+
+
+                            <!-- ========================= -->
+                            <!-- CORRECTION EDITOR -->
+                            <!-- ========================= -->
+
+                            <div
+                                id="correction-panel"
+                                class="correction-panel"
+                                hidden
+                            >
+
+                                <div class="correction-header">
+
+                                    <div>
+
+                                        <h3>
+                                            Correct Extracted Fields
+                                        </h3>
+
+                                        <p>
+                                            Change only fields that
+                                            require correction.
+                                        </p>
+
+                                    </div>
+
+
+                                    <button
+                                        id="cancel-correction-button"
+                                        type="button"
+                                        class="text-button"
+                                    >
+                                        Cancel correction
+                                    </button>
+
+                                </div>
+
+
+                                <div
+                                    id="correction-fields"
+                                    class="correction-fields"
+                                >
+                                </div>
+
+
+                                <div class="correction-help">
+
+                                    Only values changed from the
+                                    machine extraction will be sent
+                                    as corrections.
+
+                                </div>
+
+                            </div>
+
+
+                            <!-- ========================= -->
+                            <!-- MESSAGE -->
+                            <!-- ========================= -->
+
+                            <div
+                                id="review-message"
+                                class="review-message"
+                                hidden
+                            >
+                            </div>
+
+
+                            <!-- ========================= -->
+                            <!-- ACTION BUTTONS -->
+                            <!-- ========================= -->
+
+                            <div class="review-actions">
+
+                                <button
+                                    id="approve-button"
+                                    type="button"
+                                    class="
+                                        review-action-button
+                                        approve-button
+                                    "
+                                >
+                                    Approve
+                                </button>
+
+
+                                <button
+                                    id="reject-button"
+                                    type="button"
+                                    class="
+                                        review-action-button
+                                        reject-button
+                                    "
+                                >
+                                    Reject
+                                </button>
+
+
+                                <button
+                                    id="correct-button"
+                                    type="button"
+                                    class="
+                                        review-action-button
+                                        correct-button
+                                    "
+                                >
+                                    Correct
+                                </button>
+
+
+                                <button
+                                    id="submit-correction-button"
+                                    type="button"
+                                    class="
+                                        review-action-button
+                                        submit-correction-button
+                                    "
+                                    hidden
+                                >
+                                    Submit Corrections
+                                </button>
+
+                            </div>
+
+                        </div>
+
+                    </section>
+
+                </div>
+
+            </section>
+
+        </main>
+
+    </div>
+
+
+    <script
+        src="/review/static/review_detail.js"
+    ></script>
+
+</body>
+
+</html>

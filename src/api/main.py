@@ -16,6 +16,15 @@ from fastapi import (
     UploadFile,
 )
 
+from fastapi.responses import (
+    FileResponse,
+    HTMLResponse,
+)
+
+from fastapi.staticfiles import (
+    StaticFiles,
+)
+
 from src.api.schemas import (
     HumanReviewRequest,
     ReviewQueueResponse,
@@ -83,6 +92,26 @@ ALLOWED_DOCUMENT_TYPES = {
 
 
 # ==========================================================
+# DASHBOARD CONFIGURATION
+# PHASE 7B.5 / 7B.7
+# ==========================================================
+
+DASHBOARD_DIRECTORY = (
+    Path(__file__)
+    .resolve()
+    .parent
+    .parent
+    / "dashboard"
+)
+
+
+DASHBOARD_STATIC_DIRECTORY = (
+    DASHBOARD_DIRECTORY
+    / "static"
+)
+
+
+# ==========================================================
 # APPLICATION LIFESPAN
 # ==========================================================
 
@@ -101,7 +130,7 @@ async def lifespan(
 
 
     # ------------------------------------------------------
-    # Database write service
+    # Database write + original document storage service
     # ------------------------------------------------------
 
     app.state.persistence = (
@@ -138,6 +167,7 @@ async def lifespan(
         app.state,
         "pipeline",
     ):
+
         del app.state.pipeline
 
 
@@ -145,6 +175,7 @@ async def lifespan(
         app.state,
         "persistence",
     ):
+
         del app.state.persistence
 
 
@@ -152,6 +183,7 @@ async def lifespan(
         app.state,
         "document_query",
     ):
+
         del app.state.document_query
 
 
@@ -159,6 +191,7 @@ async def lifespan(
         app.state,
         "human_review",
     ):
+
         del app.state.human_review
 
 
@@ -170,16 +203,148 @@ app = FastAPI(
     title=(
         "VIGILOX Document Intelligence API"
     ),
+
     version="0.1.0",
+
     description=(
         "OCR, structured extraction, "
         "evidence validation, confidence, "
         "anomaly detection, persistent "
-        "storage, human review and "
+        "document storage, PostgreSQL "
+        "persistence, human review and "
         "audit-history API."
     ),
+
     lifespan=lifespan,
 )
+
+
+# ==========================================================
+# REVIEW DASHBOARD STATIC FILES
+# PHASE 7B.5
+# ==========================================================
+
+app.mount(
+    "/review/static",
+
+    StaticFiles(
+        directory=(
+            DASHBOARD_STATIC_DIRECTORY
+        )
+    ),
+
+    name="review-static",
+)
+
+
+# ==========================================================
+# REVIEW DASHBOARD
+# PHASE 7B.5
+# ==========================================================
+
+@app.get(
+    "/review",
+    response_class=HTMLResponse,
+    tags=["Dashboard"],
+    include_in_schema=False,
+)
+def review_dashboard():
+
+    dashboard_file = (
+        DASHBOARD_DIRECTORY
+        / "index.html"
+    )
+
+
+    if not dashboard_file.exists():
+
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Review dashboard "
+                "is not available."
+            ),
+        )
+
+
+    return FileResponse(
+        path=(
+            dashboard_file
+        ),
+
+        media_type=(
+            "text/html"
+        ),
+    )
+
+
+# ==========================================================
+# REVIEW DOCUMENT DETAIL PAGE
+# PHASE 7B.7
+# ==========================================================
+
+@app.get(
+    "/review/{document_id}",
+    response_class=HTMLResponse,
+    tags=["Dashboard"],
+    include_in_schema=False,
+)
+def review_document_detail(
+    document_id: str,
+):
+
+    # ======================================================
+    # 1. LOCATE REVIEW DETAIL HTML
+    # ======================================================
+
+    detail_file = (
+        DASHBOARD_DIRECTORY
+        / "review_detail.html"
+    )
+
+
+    # ======================================================
+    # 2. VERIFY DETAIL PAGE EXISTS
+    # ======================================================
+
+    if not detail_file.exists():
+
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Document review page "
+                "is not available."
+            ),
+        )
+
+
+    # ======================================================
+    # 3. RETURN DETAIL PAGE
+    # ======================================================
+    #
+    # The document_id is intentionally not injected into
+    # the HTML here.
+    #
+    # review_detail.js reads it from the current URL:
+    #
+    # /review/<document_id>
+    #
+    # and then loads trusted data through:
+    #
+    # GET /api/v1/documents/<document_id>
+    # GET /api/v1/documents/<document_id>/image
+    #
+    # ======================================================
+
+    return FileResponse(
+        path=(
+            detail_file
+        ),
+
+        media_type=(
+            "text/html"
+        ),
+    )
 
 
 # ==========================================================
@@ -193,15 +358,20 @@ app = FastAPI(
 def health_check():
 
     return {
-        "status": "ok",
+        "status":
+            "ok",
+
         "service":
             "vigilox-document-intelligence",
-        "version": "0.1.0",
+
+        "version":
+            "0.1.0",
     }
 
 
 # ==========================================================
 # ANALYZE + PERSIST DOCUMENT
+# PHASE 6 / PHASE 7B
 # ==========================================================
 
 @app.post(
@@ -213,10 +383,12 @@ def analyze_document(
 
     file: Annotated[
         UploadFile,
+
         File(
             description=(
                 "Document image to analyze. "
-                "Supported formats: JPG, PNG, WEBP."
+                "Supported formats: "
+                "JPG, PNG, WEBP."
             )
         ),
     ],
@@ -299,7 +471,8 @@ def analyze_document(
 
 
         # ==================================================
-        # 5. PERSIST COMPLETE RESULT TO POSTGRESQL
+        # 5. PERSIST DATABASE RESULT + ORIGINAL DOCUMENT
+        # PHASE 7B
         # ==================================================
 
         persistence_service = (
@@ -321,6 +494,10 @@ def analyze_document(
 
                 pipeline_result=(
                     pipeline_result
+                ),
+
+                source_path=(
+                    temp_path
                 ),
             )
         )
@@ -358,6 +535,11 @@ def analyze_document(
             "processing_status":
                 stored[
                     "processing_status"
+                ],
+
+            "original_document_stored":
+                stored[
+                    "original_document_stored"
                 ],
 
             "analysis":
@@ -398,6 +580,7 @@ def analyze_document(
                 temp_path
             )
 
+
             if path.exists():
 
                 path.unlink()
@@ -429,7 +612,8 @@ def get_document(
 
 
     result = (
-        query_service.get_document(
+        query_service
+        .get_document(
             document_id
         )
     )
@@ -497,8 +681,158 @@ def get_document(
 
 
 # ==========================================================
+# GET ORIGINAL DOCUMENT IMAGE
+# PHASE 7B.4
+# ==========================================================
+
+@app.get(
+    "/api/v1/documents/{document_id}/image",
+    tags=["Documents"],
+)
+def get_document_image(
+    document_id: str,
+    request: Request,
+):
+
+    # ======================================================
+    # 1. VERIFY DOCUMENT EXISTS IN POSTGRESQL
+    # ======================================================
+
+    query_service = (
+        request.app.state.document_query
+    )
+
+
+    stored_document = (
+        query_service
+        .get_document(
+            document_id
+        )
+    )
+
+
+    if stored_document is None:
+
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "Document not found."
+            ),
+        )
+
+
+    # ======================================================
+    # 2. LOAD TRUSTED DOCUMENT METADATA
+    # ======================================================
+
+    document_metadata = (
+        stored_document[
+            "document"
+        ]
+    )
+
+
+    content_type = (
+        document_metadata[
+            "content_type"
+        ]
+    )
+
+
+    original_filename = (
+        document_metadata[
+            "original_filename"
+        ]
+    )
+
+
+    # ======================================================
+    # 3. ACCESS DOCUMENT STORAGE SERVICE
+    # ======================================================
+
+    persistence_service = (
+        request.app.state.persistence
+    )
+
+
+    storage_service = (
+        persistence_service
+        .storage_service
+    )
+
+
+    # ======================================================
+    # 4. LOCATE ORIGINAL DOCUMENT
+    # ======================================================
+
+    try:
+
+        original_path = (
+            storage_service
+            .load_original(
+                document_id=(
+                    document_id
+                ),
+
+                content_type=(
+                    content_type
+                ),
+            )
+        )
+
+
+    except ValueError as exc:
+
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Stored document has an "
+                "unsupported content type."
+            ),
+        ) from exc
+
+
+    # ======================================================
+    # 5. ORIGINAL FILE NOT AVAILABLE
+    # ======================================================
+
+    if original_path is None:
+
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "Original document image "
+                "is not available."
+            ),
+        )
+
+
+    # ======================================================
+    # 6. RETURN ORIGINAL IMAGE
+    # ======================================================
+
+    return FileResponse(
+        path=(
+            original_path
+        ),
+
+        media_type=(
+            content_type
+        ),
+
+        filename=(
+            original_filename
+        ),
+
+        content_disposition_type=(
+            "inline"
+        ),
+    )
+
+
+# ==========================================================
 # GET REVIEW QUEUE
-# PHASE 7A
+# PHASE 7A / 7B.6
 # ==========================================================
 
 @app.get(
@@ -511,20 +845,24 @@ def get_review_queue(
 
     priority: Annotated[
         str | None,
+
         Query(
             description=(
                 "Optional review priority filter. "
-                "Allowed values: HIGH, MEDIUM, LOW."
+                "Allowed values: "
+                "HIGH, MEDIUM, LOW."
             )
         ),
     ] = None,
 
     document_type: Annotated[
         str | None,
+
         Query(
             description=(
                 "Optional document-type filter. "
-                "Allowed values: guard_license, "
+                "Allowed values: "
+                "guard_license, "
                 "sia_badge, id_card."
             )
         ),
@@ -541,7 +879,9 @@ def get_review_queue(
     if priority is not None:
 
         normalized_priority = (
-            priority.strip().upper()
+            priority
+            .strip()
+            .upper()
         )
 
 
@@ -570,7 +910,9 @@ def get_review_queue(
     if document_type is not None:
 
         normalized_document_type = (
-            document_type.strip().lower()
+            document_type
+            .strip()
+            .lower()
         )
 
 
@@ -625,7 +967,8 @@ def get_review_queue(
         raise HTTPException(
             status_code=500,
             detail=(
-                "Failed to load review queue."
+                "Failed to load "
+                "review queue."
             ),
         ) from exc
 
@@ -661,7 +1004,8 @@ def submit_human_review(
 
 
     stored_document = (
-        query_service.get_document(
+        query_service
+        .get_document(
             document_id
         )
     )
@@ -720,7 +1064,8 @@ def submit_human_review(
             status_code=409,
             detail=(
                 "Stored document does not "
-                "have a machine review decision."
+                "have a machine review "
+                "decision."
             ),
         )
 

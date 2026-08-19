@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from src.db.database import (
     SessionLocal,
 )
@@ -9,8 +11,31 @@ from src.db.repositories import (
     HumanReviewRepository,
 )
 
+from src.document_storage_service import (
+    DocumentStorageService,
+)
+
 
 class PersistenceService:
+
+    # ======================================================
+    # INITIALIZATION
+    # PHASE 7B
+    # ======================================================
+
+    def __init__(
+        self,
+        storage_service: (
+            DocumentStorageService
+            | None
+        ) = None,
+    ):
+
+        self.storage_service = (
+            storage_service
+            or DocumentStorageService()
+        )
+
 
     # ======================================================
     # SAVE PROCESSED DOCUMENT
@@ -22,6 +47,7 @@ class PersistenceService:
         original_filename: str,
         content_type: str,
         pipeline_result: dict,
+        source_path: str | Path | None = None,
     ) -> dict:
 
         document_type = (
@@ -34,142 +60,235 @@ class PersistenceService:
         )
 
 
-        with SessionLocal.begin() as session:
+        # Keep track of storage so that a later
+        # database failure can clean the file.
+        stored_document_id = None
 
-            document_repository = (
-                DocumentRepository(
-                    session
+        original_document_stored = False
+
+
+        try:
+
+            with SessionLocal.begin() as session:
+
+                document_repository = (
+                    DocumentRepository(
+                        session
+                    )
                 )
-            )
 
-            analysis_repository = (
-                DocumentAnalysisRepository(
-                    session
+                analysis_repository = (
+                    DocumentAnalysisRepository(
+                        session
+                    )
                 )
-            )
 
-            audit_repository = (
-                AuditEventRepository(
-                    session
+                audit_repository = (
+                    AuditEventRepository(
+                        session
+                    )
                 )
-            )
 
+
+                # ==========================================
+                # DOCUMENT
+                # ==========================================
+
+                document = (
+                    document_repository
+                    .create_document(
+                        original_filename=(
+                            original_filename
+                        ),
+
+                        content_type=(
+                            content_type
+                        ),
+
+                        document_type=(
+                            document_type
+                        ),
+
+                        processing_status=(
+                            "PROCESSED"
+                        ),
+                    )
+                )
+
+
+                stored_document_id = (
+                    document.id
+                )
+
+
+                # ==========================================
+                # ORIGINAL DOCUMENT STORAGE
+                # PHASE 7B
+                # ==========================================
+                #
+                # source_path remains optional for backward
+                # compatibility with older tests/services.
+                #
+                # Real API uploads will provide it.
+                # ==========================================
+
+                if source_path is not None:
+
+                    self.storage_service.save_original(
+                        document_id=(
+                            document.id
+                        ),
+
+                        source_path=(
+                            source_path
+                        ),
+
+                        content_type=(
+                            content_type
+                        ),
+                    )
+
+
+                    original_document_stored = True
+
+
+                # ==========================================
+                # ANALYSIS
+                # ==========================================
+
+                analysis = (
+                    analysis_repository
+                    .create_analysis(
+                        document_id=(
+                            document.id
+                        ),
+
+                        pipeline_result=(
+                            pipeline_result
+                        ),
+                    )
+                )
+
+
+                # ==========================================
+                # MACHINE DECISION AUDIT
+                # ==========================================
+
+                review_decision = (
+                    pipeline_result[
+                        "review_decision"
+                    ]
+                )
+
+
+                machine_audit = (
+                    audit_repository
+                    .create_event(
+                        document_id=(
+                            document.id
+                        ),
+
+                        event_type=(
+                            "MACHINE_REVIEW_DECISION"
+                        ),
+
+                        actor_type=(
+                            "SYSTEM"
+                        ),
+
+                        actor_id=(
+                            "vigilox-system"
+                        ),
+
+                        details={
+                            "decision":
+                                review_decision.get(
+                                    "decision"
+                                ),
+
+                            "review_required":
+                                review_decision.get(
+                                    "review_required"
+                                ),
+
+                            "priority":
+                                review_decision.get(
+                                    "priority"
+                                ),
+
+                            "reason_codes":
+                                review_decision.get(
+                                    "reason_codes",
+                                    [],
+                                ),
+                        },
+                    )
+                )
+
+
+                # ==========================================
+                # RESULT
+                # ==========================================
+
+                result = {
+                    "document_id":
+                        document.id,
+
+                    "analysis_id":
+                        analysis.id,
+
+                    "machine_audit_id":
+                        machine_audit.id,
+
+                    "document_type":
+                        document.document_type,
+
+                    "processing_status":
+                        document.processing_status,
+
+                    "original_document_stored":
+                        original_document_stored,
+                }
+
+
+            return result
+
+
+        except Exception:
 
             # ==============================================
-            # DOCUMENT
+            # FILESYSTEM COMPENSATING CLEANUP
+            # ==============================================
+            #
+            # PostgreSQL rolls back automatically because
+            # SessionLocal.begin() failed.
+            #
+            # Filesystem writes are not transactional, so
+            # remove any file that was already stored.
             # ==============================================
 
-            document = (
-                document_repository
-                .create_document(
-                    original_filename=(
-                        original_filename
-                    ),
-                    content_type=(
-                        content_type
-                    ),
-                    document_type=(
-                        document_type
-                    ),
-                    processing_status=(
-                        "PROCESSED"
-                    ),
-                )
-            )
+            if (
+                stored_document_id is not None
+                and original_document_stored
+            ):
+
+                try:
+
+                    self.storage_service.delete_document(
+                        stored_document_id
+                    )
+
+                except Exception as cleanup_exc:
+
+                    print(
+                        "[DOCUMENT STORAGE CLEANUP ERROR]",
+                        repr(
+                            cleanup_exc
+                        ),
+                    )
 
 
-            # ==============================================
-            # ANALYSIS
-            # ==============================================
-
-            analysis = (
-                analysis_repository
-                .create_analysis(
-                    document_id=(
-                        document.id
-                    ),
-                    pipeline_result=(
-                        pipeline_result
-                    ),
-                )
-            )
-
-
-            # ==============================================
-            # MACHINE DECISION AUDIT
-            # ==============================================
-
-            review_decision = (
-                pipeline_result[
-                    "review_decision"
-                ]
-            )
-
-
-            machine_audit = (
-                audit_repository
-                .create_event(
-                    document_id=(
-                        document.id
-                    ),
-
-                    event_type=(
-                        "MACHINE_REVIEW_DECISION"
-                    ),
-
-                    actor_type=(
-                        "SYSTEM"
-                    ),
-
-                    actor_id=(
-                        "vigilox-system"
-                    ),
-
-                    details={
-                        "decision":
-                            review_decision.get(
-                                "decision"
-                            ),
-
-                        "review_required":
-                            review_decision.get(
-                                "review_required"
-                            ),
-
-                        "priority":
-                            review_decision.get(
-                                "priority"
-                            ),
-
-                        "reason_codes":
-                            review_decision.get(
-                                "reason_codes",
-                                [],
-                            ),
-                    },
-                )
-            )
-
-
-            result = {
-                "document_id":
-                    document.id,
-
-                "analysis_id":
-                    analysis.id,
-
-                "machine_audit_id":
-                    machine_audit.id,
-
-                "document_type":
-                    document.document_type,
-
-                "processing_status":
-                    document.processing_status,
-            }
-
-
-        return result
+            raise
 
 
     # ======================================================
