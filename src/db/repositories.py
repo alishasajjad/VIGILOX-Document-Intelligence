@@ -1,6 +1,10 @@
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import (
+    case,
+    exists,
+    select,
+)
 from sqlalchemy.orm import Session
 
 from src.db.models import (
@@ -347,3 +351,197 @@ class AuditEventRepository:
                 statement
             ).all()
         )
+
+
+# ==========================================================
+# REVIEW QUEUE REPOSITORY
+# PHASE 7A
+# ==========================================================
+
+class ReviewQueueRepository:
+
+    def __init__(
+        self,
+        session: Session,
+    ):
+        self.session = session
+
+
+    def get_review_queue(
+        self,
+        *,
+        priority: str | None = None,
+        document_type: str | None = None,
+    ) -> list[
+        tuple[
+            DocumentModel,
+            DocumentAnalysisModel,
+        ]
+    ]:
+
+        # ==================================================
+        # JSONB EXPRESSIONS
+        # ==================================================
+
+        decision_expression = (
+            DocumentAnalysisModel
+            .review_decision[
+                "decision"
+            ]
+            .as_string()
+        )
+
+        priority_expression = (
+            DocumentAnalysisModel
+            .review_decision[
+                "priority"
+            ]
+            .as_string()
+        )
+
+
+        # ==================================================
+        # HUMAN REVIEW EXISTS
+        # ==================================================
+        #
+        # A document must disappear from the pending
+        # review queue once any human review has been
+        # submitted for that document.
+        # ==================================================
+
+        human_review_exists = (
+            exists()
+            .where(
+                HumanReviewModel.document_id
+                == DocumentModel.id
+            )
+        )
+
+
+        # ==================================================
+        # PRIORITY ORDER
+        # ==================================================
+
+        priority_order = case(
+
+            (
+                priority_expression
+                == "HIGH",
+                1,
+            ),
+
+            (
+                priority_expression
+                == "MEDIUM",
+                2,
+            ),
+
+            (
+                priority_expression
+                == "LOW",
+                3,
+            ),
+
+            else_=4,
+        )
+
+
+        # ==================================================
+        # BASE QUERY
+        # ==================================================
+
+        statement = (
+            select(
+                DocumentModel,
+                DocumentAnalysisModel,
+            )
+
+            .join(
+                DocumentAnalysisModel,
+                DocumentAnalysisModel.document_id
+                == DocumentModel.id,
+            )
+
+            .where(
+                decision_expression
+                == "REVIEW_REQUIRED"
+            )
+
+            # Exclude documents that have already
+            # received a human review.
+            .where(
+                ~human_review_exists
+            )
+        )
+
+
+        # ==================================================
+        # OPTIONAL PRIORITY FILTER
+        # ==================================================
+
+        if priority is not None:
+
+            statement = (
+                statement.where(
+                    priority_expression
+                    == priority
+                )
+            )
+
+
+        # ==================================================
+        # OPTIONAL DOCUMENT TYPE FILTER
+        # ==================================================
+
+        if document_type is not None:
+
+            statement = (
+                statement.where(
+                    DocumentModel.document_type
+                    == document_type
+                )
+            )
+
+
+        # ==================================================
+        # ORDERING
+        # ==================================================
+        #
+        # HIGH first
+        # MEDIUM second
+        # LOW third
+        #
+        # Within the same priority:
+        # oldest document first.
+        # ==================================================
+
+        statement = (
+            statement.order_by(
+                priority_order.asc(),
+                DocumentModel.created_at.asc(),
+            )
+        )
+
+
+        # ==================================================
+        # EXECUTE QUERY
+        # ==================================================
+
+        rows = (
+            self.session
+            .execute(
+                statement
+            )
+            .all()
+        )
+
+
+        return [
+            (
+                row[0],
+                row[1],
+            )
+
+            for row
+            in rows
+        ]

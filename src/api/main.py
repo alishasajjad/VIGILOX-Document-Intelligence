@@ -11,12 +11,14 @@ from fastapi import (
     FastAPI,
     File,
     HTTPException,
+    Query,
     Request,
     UploadFile,
 )
 
 from src.api.schemas import (
     HumanReviewRequest,
+    ReviewQueueResponse,
 )
 
 from src.db.persistence_service import (
@@ -58,6 +60,25 @@ CONTENT_TYPE_SUFFIXES = {
     "image/jpeg": ".jpg",
     "image/png": ".png",
     "image/webp": ".webp",
+}
+
+
+# ==========================================================
+# REVIEW QUEUE CONFIGURATION
+# PHASE 7A
+# ==========================================================
+
+ALLOWED_REVIEW_PRIORITIES = {
+    "HIGH",
+    "MEDIUM",
+    "LOW",
+}
+
+
+ALLOWED_DOCUMENT_TYPES = {
+    "guard_license",
+    "sia_badge",
+    "id_card",
 }
 
 
@@ -473,6 +494,147 @@ def get_document(
 
         **result,
     }
+
+
+# ==========================================================
+# GET REVIEW QUEUE
+# PHASE 7A
+# ==========================================================
+
+@app.get(
+    "/api/v1/reviews/queue",
+    tags=["Reviews"],
+    response_model=ReviewQueueResponse,
+)
+def get_review_queue(
+    request: Request,
+
+    priority: Annotated[
+        str | None,
+        Query(
+            description=(
+                "Optional review priority filter. "
+                "Allowed values: HIGH, MEDIUM, LOW."
+            )
+        ),
+    ] = None,
+
+    document_type: Annotated[
+        str | None,
+        Query(
+            description=(
+                "Optional document-type filter. "
+                "Allowed values: guard_license, "
+                "sia_badge, id_card."
+            )
+        ),
+    ] = None,
+):
+
+    # ======================================================
+    # 1. NORMALIZE PRIORITY FILTER
+    # ======================================================
+
+    normalized_priority = None
+
+
+    if priority is not None:
+
+        normalized_priority = (
+            priority.strip().upper()
+        )
+
+
+        if (
+            normalized_priority
+            not in ALLOWED_REVIEW_PRIORITIES
+        ):
+
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Invalid priority. "
+                    "Allowed values are "
+                    "HIGH, MEDIUM and LOW."
+                ),
+            )
+
+
+    # ======================================================
+    # 2. NORMALIZE DOCUMENT TYPE FILTER
+    # ======================================================
+
+    normalized_document_type = None
+
+
+    if document_type is not None:
+
+        normalized_document_type = (
+            document_type.strip().lower()
+        )
+
+
+        if (
+            normalized_document_type
+            not in ALLOWED_DOCUMENT_TYPES
+        ):
+
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Invalid document_type. "
+                    "Allowed values are "
+                    "guard_license, "
+                    "sia_badge and id_card."
+                ),
+            )
+
+
+    # ======================================================
+    # 3. QUERY PENDING REVIEW DOCUMENTS
+    # ======================================================
+
+    query_service = (
+        request.app.state.document_query
+    )
+
+
+    try:
+
+        result = (
+            query_service
+            .get_review_queue(
+                priority=(
+                    normalized_priority
+                ),
+
+                document_type=(
+                    normalized_document_type
+                ),
+            )
+        )
+
+
+    except Exception as exc:
+
+        print(
+            "[REVIEW QUEUE ERROR]",
+            repr(exc),
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Failed to load review queue."
+            ),
+        ) from exc
+
+
+    # ======================================================
+    # 4. RETURN QUEUE
+    # ======================================================
+
+    return result
 
 
 # ==========================================================
