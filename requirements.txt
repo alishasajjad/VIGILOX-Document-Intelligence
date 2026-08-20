@@ -1,0 +1,85 @@
+# ==========================================================
+# VIGILOX DOCUMENT INTELLIGENCE
+# RUNTIME DEPENDENCIES
+# ==========================================================
+#
+# Python 3.13.9
+#
+# Versions are pinned to the versions this project has been
+# built and verified against.
+#
+# Install:
+#
+#     python -m venv .venv
+#     .\.venv\Scripts\Activate.ps1
+#     pip install -r requirements.txt
+# ==========================================================
+
+
+# ----------------------------------------------------------
+# API FRAMEWORK
+# ----------------------------------------------------------
+
+fastapi==0.141.1
+starlette==1.6.0
+uvicorn==0.52.3
+
+# Required by FastAPI to parse multipart/form-data uploads
+# on POST /api/v1/documents/analyze.
+python-multipart==0.0.32
+
+
+# ----------------------------------------------------------
+# VALIDATION / SCHEMAS
+# ----------------------------------------------------------
+
+pydantic==2.13.4
+
+
+# ----------------------------------------------------------
+# DATABASE
+# ----------------------------------------------------------
+
+SQLAlchemy==2.0.52
+
+# PostgreSQL driver used by the SQLAlchemy
+# "postgresql+psycopg://" URL.
+psycopg==3.3.4
+
+
+# ----------------------------------------------------------
+# OCR
+# ----------------------------------------------------------
+
+paddleocr==3.7.0
+paddlepaddle==3.3.1
+
+# Used directly by the image preprocessing pipeline.
+opencv-python==5.0.0.93
+numpy==2.3.5
+pillow==12.3.0
+
+
+# ----------------------------------------------------------
+# LLM EXTRACTION
+# ----------------------------------------------------------
+
+groq==1.6.0
+
+
+# ----------------------------------------------------------
+# CONFIGURATION
+# ----------------------------------------------------------
+
+python-dotenv==1.2.2
+
+
+# ----------------------------------------------------------
+# TESTING
+# ----------------------------------------------------------
+#
+# The standalone test suite uses fastapi.testclient.
+# TestClient requires httpx at runtime.
+# ----------------------------------------------------------
+
+httpx==0.28.1
