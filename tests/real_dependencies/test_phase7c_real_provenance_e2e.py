@@ -51,9 +51,36 @@ load_dotenv()
 # CONFIGURATION
 # ==========================================================
 
+# ==========================================================
+# TRACKED SYNTHETIC FIXTURE
+# PHASE 8.2
+# ==========================================================
+#
+# This test used to read samples/guard_license.jpg.
+#
+# samples/ is gitignored in full because
+# samples/id_card.jpg is a photograph of an apparently REAL
+# national identity card. That made this test unrunnable
+# from a clean clone.
+#
+# It now reads the tracked seed fixture:
+#
+#     evaluation/images/guard_license/guard_001.jpg
+#
+# which is BYTE-IDENTICAL to the old samples/ file, so every
+# OCR line ID and every expectation below is unchanged.
+#
+# The fixture is stable by design:
+# scripts/evaluation/generate_synthetic_documents.py
+# generates from index 2 upward and never regenerates the
+# *_001 seed documents.
+# ==========================================================
+
 SAMPLE_PATH = (
-    Path("samples")
-    / "guard_license.jpg"
+    Path("evaluation")
+    / "images"
+    / "guard_license"
+    / "guard_001.jpg"
 )
 
 

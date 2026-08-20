@@ -96,7 +96,7 @@ try:
 
 
         with open(
-            "samples/guard_license.jpg",
+            "evaluation/images/guard_license/guard_001.jpg",
             "rb",
         ) as image_file:
 

@@ -678,6 +678,32 @@ def main():
             build_sia_record(i)
         )
 
+    # ======================================================
+    # SEED FIXTURES ARE NEVER REGENERATED
+    # ======================================================
+    #
+    # Generation deliberately starts at index 2.
+    #
+    # The *_001 documents are seed reference images and are
+    # tracked fixtures. In particular:
+    #
+    #     evaluation/images/guard_license/guard_001.jpg
+    #
+    # is read directly by these tests:
+    #
+    #     tests/real_dependencies/
+    #         test_phase7c_real_provenance_e2e.py
+    #         test_real_pipeline_persistence.py
+    #         test_pipeline_service.py
+    #
+    # test_phase7c_real_provenance_e2e.py asserts exact OCR
+    # line IDs and exact per-field evidence for that image.
+    # Regenerating guard_001 would silently invalidate those
+    # expectations.
+    #
+    # Do not lower these ranges to 1.
+    # ======================================================
+
     # Generate 20 Guard:
     # guard_002 ... guard_021
     for i in range(

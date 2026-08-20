@@ -121,7 +121,7 @@ VIGILOX-Document-Intelligence/
 ├── scripts/                 evaluation, verification, maintenance, development
 ├── docs/                    architecture, phases
 ├── storage/                 runtime managed documents (gitignored)
-├── samples/                 synthetic test documents
+├── samples/                 local scratch only (gitignored, unused)
 ├── requirements.txt
 └── .env.example
 ```
@@ -246,6 +246,10 @@ $env:PYTHONIOENCODING = "utf-8"
 $env:PYTHONPATH = "."
 .\.venv\Scripts\python.exe .\tests\api\test_phase7c_readiness.py
 ```
+
+Every file the suite reads is tracked, so a fresh clone runs the whole
+suite with no private or locally-supplied document. Fixtures come from
+`evaluation/images/`; see [`tests/README.md`](tests/README.md).
 
 Real-dependency tests call PaddleOCR, Groq and PostgreSQL for real. They
 consume Groq daily tokens and will fail with HTTP 429 once the quota is

@@ -205,7 +205,7 @@ class RequestIDMiddleware:
     wrapper below.
 
     For that reason the central error handlers in
-    src/api/error_handlers.py attach the X-Request-ID header
+    backend/app/api/error_handlers.py attach the X-Request-ID
     themselves. Together the two mechanisms guarantee the
     header is present on:
 
