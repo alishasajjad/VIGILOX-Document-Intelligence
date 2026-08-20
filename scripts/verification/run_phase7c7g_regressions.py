@@ -357,6 +357,167 @@ def compile_changed_files() -> bool:
 
 
 # ==========================================================
+# EXTERNAL PROVIDER BLOCK CLASSIFICATION
+# PHASE 8.2 / TASK A
+# ==========================================================
+#
+# A real-dependency test can fail for two completely
+# different reasons:
+#
+#     the code is broken
+#     the LLM provider refused the request on quota
+#
+# Reporting both as FAIL hides regressions behind noise and
+# makes an exhausted daily allowance look like a defect.
+#
+# EXTERNAL_BLOCKED is therefore a distinct outcome. It is
+# deliberately NOT a pass: the release gate still refuses to
+# report success while any test is blocked.
+#
+#
+# DELIBERATELY NARROW
+# ----------------------------------------------------------
+#
+# Classification requires ALL of:
+#
+#     1. the test is in the real-dependency group, declared
+#        up front rather than inferred
+#     2. the output names a provider rate-limit exception
+#     3. the output carries a quota signature (429 /
+#        rate_limit_exceeded / tokens per day)
+#
+# Anything else stays FAIL. AssertionError, ImportError,
+# ModuleNotFoundError, FileNotFoundError, database errors,
+# OCR mismatches and unexpected exceptions are never
+# reclassified, even inside a real-dependency test.
+# ==========================================================
+
+PROVIDER_LIMIT_EXCEPTIONS = (
+    "ratelimiterror",
+    "rate_limit_error",
+)
+
+
+PROVIDER_LIMIT_SIGNATURES = (
+    "429",
+    "rate_limit_exceeded",
+    "tokens per day",
+    "rate limit reached",
+    "requests per day",
+)
+
+
+# Failures that must NEVER be treated as external, even in a
+# real-dependency test.
+CODE_FAILURE_SIGNATURES = (
+    "assertionerror",
+    "modulenotfounderror",
+    "importerror",
+    "filenotfounderror",
+    "attributeerror",
+    "keyerror",
+    "typeerror",
+    "integrityerror",
+    "operationalerror",
+    "programmingerror",
+)
+
+
+def real_dependency_test_files() -> set:
+
+    for (
+        group_name,
+        test_files,
+    ) in TEST_GROUPS:
+
+        if group_name == REAL_DEPENDENCY_GROUP:
+
+            return set(
+                test_files
+            )
+
+
+    return set()
+
+
+def classify_failure(
+    test_file: str,
+    output: str,
+) -> str:
+
+    # ======================================================
+    # 1. ONLY DECLARED REAL-DEPENDENCY TESTS QUALIFY
+    # ======================================================
+
+    if (
+        test_file
+        not in real_dependency_test_files()
+    ):
+
+        return "FAIL"
+
+
+    lowered = (
+        output.lower()
+    )
+
+
+    # ======================================================
+    # 2. A GENUINE CODE FAILURE WINS
+    # ======================================================
+    #
+    # If the output also contains a real code-failure
+    # signature, this is not a clean provider block and must
+    # be investigated as a failure.
+    # ======================================================
+
+    for signature in (
+        CODE_FAILURE_SIGNATURES
+    ):
+
+        if signature in lowered:
+
+            return "FAIL"
+
+
+    # ======================================================
+    # 3. PROVIDER RATE-LIMIT EXCEPTION
+    # ======================================================
+
+    has_exception = any(
+        name in lowered
+        for name in (
+            PROVIDER_LIMIT_EXCEPTIONS
+        )
+    )
+
+
+    if not has_exception:
+
+        return "FAIL"
+
+
+    # ======================================================
+    # 4. QUOTA SIGNATURE
+    # ======================================================
+
+    has_signature = any(
+        marker in lowered
+        for marker in (
+            PROVIDER_LIMIT_SIGNATURES
+        )
+    )
+
+
+    if not has_signature:
+
+        return "FAIL"
+
+
+    return "EXTERNAL_BLOCKED"
+
+
+# ==========================================================
 # RUN A SINGLE TEST FILE
 # ==========================================================
 
@@ -453,8 +614,20 @@ def run_test_file(
     )
 
 
+    # ======================================================
+    # DISTINGUISH CODE FAILURE FROM PROVIDER BLOCK
+    # ======================================================
+
+    status = (
+        classify_failure(
+            test_file,
+            combined,
+        )
+    )
+
+
     return (
-        "FAIL",
+        status,
         duration,
         tail,
     )
@@ -632,6 +805,9 @@ def main() -> int:
     failures = []
 
 
+    blocked = []
+
+
     for (
         group_name,
         test_files,
@@ -685,9 +861,71 @@ def main() -> int:
                 )
 
 
+            elif status == "EXTERNAL_BLOCKED":
+
+                blocked.append(
+                    (
+                        test_file,
+                        tail,
+                    )
+                )
+
+
     # ======================================================
     # FAILURE DETAIL
     # ======================================================
+
+    if blocked:
+
+        print()
+        print("=" * 76)
+        print(
+            "EXTERNAL DEPENDENCY BLOCKED"
+        )
+        print("=" * 76)
+        print()
+        print(
+            "These tests did not fail on "
+            "their own logic. The LLM provider "
+            "refused the request on quota."
+        )
+        print(
+            "They are NOT passing, and the "
+            "release gate stays incomplete "
+            "until they run."
+        )
+
+
+        for (
+            test_file,
+            tail,
+        ) in blocked:
+
+            print()
+            print(
+                f"  {test_file}"
+            )
+
+
+            for line in (
+                tail.splitlines()
+            ):
+
+                lowered = (
+                    line.lower()
+                )
+
+
+                if (
+                    "ratelimit" in lowered
+                    or "limit " in lowered
+                    or "try again" in lowered
+                ):
+
+                    print(
+                        f"      {line.strip()[:110]}"
+                    )
+
 
     if failures:
 
@@ -733,6 +971,15 @@ def main() -> int:
             1
             for entry in results
             if entry[2] == "FAIL"
+        )
+    )
+
+
+    external_blocked = (
+        sum(
+            1
+            for entry in results
+            if entry[2] == "EXTERNAL_BLOCKED"
         )
     )
 
@@ -806,6 +1053,11 @@ def main() -> int:
     )
 
     print(
+        f"BLOCKED : {external_blocked}"
+        "   (external provider limit)"
+    )
+
+    print(
         f"MISSING : {missing}"
     )
 
@@ -840,6 +1092,40 @@ def main() -> int:
 
 
         return 1
+
+
+    # ======================================================
+    # NO CODE FAILURES, BUT SOMETHING WAS BLOCKED
+    # ======================================================
+    #
+    # Distinct exit code 2 so automation can tell
+    # "the code is fine, the provider was unavailable"
+    # apart from both success and failure.
+    # ======================================================
+
+    if external_blocked:
+
+        print(
+            "[BLOCKED] "
+            f"{len(results) - external_blocked} "
+            "test(s) passed, "
+            f"{external_blocked} blocked by an "
+            "external provider limit"
+        )
+
+        print(
+            "          No code failures. The "
+            "release gate is INCOMPLETE, not "
+            "green."
+        )
+
+        print(
+            "          Rerun with --only-real "
+            "once provider quota recovers."
+        )
+
+
+        return 2
 
 
     if skipped_groups:

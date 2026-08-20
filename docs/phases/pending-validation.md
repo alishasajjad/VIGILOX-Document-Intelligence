@@ -77,7 +77,43 @@ because deleting a user file needs explicit approval.
 
 ---
 
-## 3. Groq daily token quota
+## 3. Real-dependency release verification
+
+**Status:** EXTERNAL_BLOCKED
+**Category:** external provider limit, not a defect
+
+| Gate | Result |
+| --- | --- |
+| Standard development gate | ✅ 41 / 41 PASS |
+| Real-dependency release gate | 🟡 2 EXTERNAL_BLOCKED |
+
+The two real-dependency tests cannot currently run: Groq refuses the
+request on the tokens-per-day allowance. They are **not** passing, and
+the runner reports them as `EXTERNAL_BLOCKED` with exit code 2 rather
+than folding them into either PASS or FAIL.
+
+Evidence this is external and not a migration defect:
+
+- the provenance test has already passed once post-restructure with real
+  PaddleOCR, real Groq and real PostgreSQL
+- both tests import cleanly, load their tracked fixture and complete
+  real PaddleOCR; only the Groq HTTP call fails
+- the failure signature is `RateLimitError` / HTTP 429 with a
+  tokens-per-day message, and nothing else
+
+To close it:
+
+```powershell
+$env:PYTHONIOENCODING = "utf-8"
+.\.venv\Scripts\python.exe -m scripts.verification.run_phase7c7g_regressions --only-real
+.\.venv\Scripts\python.exe -m scripts.verification.run_phase7c7g_regressions
+```
+
+Target: 43 / 43 with 0 failed, 0 blocked, 0 missing.
+
+---
+
+## 4. Groq daily token quota
 
 **Status:** environmental
 **Category:** external provider limit
