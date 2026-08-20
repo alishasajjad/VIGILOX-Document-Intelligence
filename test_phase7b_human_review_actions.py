@@ -25,6 +25,10 @@ from src.human_review_service import (
     HumanReviewService,
 )
 
+from src.reviewer_identity_service import (
+    ReviewerIdentityService,
+)
+
 
 # ==========================================================
 # PIPELINE RESULT
@@ -297,6 +301,25 @@ def assert_equal(
 
 
 # ==========================================================
+# REVIEWER AUTH HEADERS
+# PHASE 7C.5
+# ==========================================================
+
+def reviewer_headers(
+    reviewer_id: str,
+    role: str = "REVIEWER",
+) -> dict[str, str]:
+
+    return {
+        "X-VIGILOX-REVIEWER-ID":
+            reviewer_id,
+
+        "X-VIGILOX-REVIEWER-ROLE":
+            role,
+    }
+
+
+# ==========================================================
 # CREATE TEMP REVIEW DOCUMENT
 # ==========================================================
 
@@ -524,6 +547,18 @@ def main():
         )
 
 
+        # ==================================================
+        # PHASE 7C.5
+        # TRUSTED REVIEWER IDENTITY
+        # ==================================================
+
+        app.state.reviewer_identity = (
+            ReviewerIdentityService(
+                mode="trusted_headers"
+            )
+        )
+
+
         client = TestClient(
             app
         )
@@ -570,10 +605,11 @@ def main():
                 "/reviews"
             ),
 
-            json={
-                "reviewer_id":
-                    "phase7b-reviewer",
+            headers=reviewer_headers(
+                "phase7b-reviewer"
+            ),
 
+            json={
                 "action":
                     "APPROVE",
 
@@ -603,6 +639,16 @@ def main():
             get_human_review(
                 approve_document_id
             )
+        )
+
+
+        assert_equal(
+            review.reviewer_id,
+            "phase7b-reviewer",
+            (
+                "Authenticated reviewer "
+                "was not persisted."
+            ),
         )
 
 
@@ -678,10 +724,11 @@ def main():
                 "/reviews"
             ),
 
-            json={
-                "reviewer_id":
-                    "phase7b-reviewer",
+            headers=reviewer_headers(
+                "phase7b-reviewer"
+            ),
 
+            json={
                 "action":
                     "REJECT",
 
@@ -714,6 +761,16 @@ def main():
             get_human_review(
                 reject_document_id
             )
+        )
+
+
+        assert_equal(
+            review.reviewer_id,
+            "phase7b-reviewer",
+            (
+                "Authenticated reviewer "
+                "was not persisted."
+            ),
         )
 
 
@@ -798,10 +855,11 @@ def main():
                 "/reviews"
             ),
 
-            json={
-                "reviewer_id":
-                    "phase7b-reviewer",
+            headers=reviewer_headers(
+                "phase7b-reviewer"
+            ),
 
+            json={
                 "action":
                     "CORRECT",
 
@@ -837,6 +895,16 @@ def main():
             get_human_review(
                 correct_document_id
             )
+        )
+
+
+        assert_equal(
+            review.reviewer_id,
+            "phase7b-reviewer",
+            (
+                "Authenticated reviewer "
+                "was not persisted."
+            ),
         )
 
 
@@ -977,10 +1045,11 @@ def main():
                 "/reviews"
             ),
 
-            json={
-                "reviewer_id":
-                    "phase7b-reviewer",
+            headers=reviewer_headers(
+                "phase7b-reviewer"
+            ),
 
+            json={
                 "action":
                     "CORRECT",
 
@@ -1078,14 +1147,14 @@ def main():
         for document_id in (
             created_document_ids
         ):
-            
+
             (
                 persistence_service
                 .storage_service
                 .delete_document(
                     document_id
-                    )
                 )
+            )
 
 
         # ==================================================
@@ -1096,6 +1165,7 @@ def main():
             "persistence",
             "document_query",
             "human_review",
+            "reviewer_identity",
         ):
 
             if hasattr(

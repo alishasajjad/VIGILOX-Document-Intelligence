@@ -6,14 +6,94 @@ from src.db.repositories import (
     AuditEventRepository,
     DocumentAnalysisRepository,
     DocumentRepository,
+    HumanReviewRepository,
     ReviewQueueRepository,
+)
+
+from src.final_record_service import (
+    FinalRecordService,
 )
 
 
 class DocumentQueryService:
 
     # ======================================================
+    # INITIALIZATION
+    # PHASE 7C.3
+    # ======================================================
+
+    def __init__(
+        self,
+    ):
+
+        self.final_record_service = (
+            FinalRecordService()
+        )
+
+
+    # ======================================================
+    # SERIALIZE HUMAN REVIEW
+    # PHASE 7C.3
+    # ======================================================
+
+    def _serialize_human_review(
+        self,
+        review,
+    ) -> dict | None:
+
+        if review is None:
+
+            return None
+
+
+        return {
+            "review_id":
+                review.id,
+
+            "document_id":
+                review.document_id,
+
+            "reviewer_id":
+                review.reviewer_id,
+
+            "machine_decision":
+                review.machine_decision,
+
+            "machine_priority":
+                review.machine_priority,
+
+            "machine_reason_codes":
+                (
+                    review.machine_reason_codes
+                    or []
+                ),
+
+            "human_action":
+                review.human_action,
+
+            "corrections":
+                (
+                    review.corrections
+                    or {}
+                ),
+
+            "notes":
+                review.notes,
+
+            "reviewed_at":
+                (
+                    review.reviewed_at
+                    .isoformat()
+
+                    if review.reviewed_at
+                    else None
+                ),
+        }
+
+
+    # ======================================================
     # GET COMPLETE STORED DOCUMENT
+    # PHASE 7C.3
     # ======================================================
 
     def get_document(
@@ -31,6 +111,12 @@ class DocumentQueryService:
 
             analysis_repository = (
                 DocumentAnalysisRepository(
+                    session
+                )
+            )
+
+            human_review_repository = (
+                HumanReviewRepository(
                     session
                 )
             )
@@ -66,6 +152,26 @@ class DocumentQueryService:
 
 
             # ==============================================
+            # HUMAN REVIEW
+            # PHASE 7C.3
+            # ==============================================
+
+            human_review = (
+                human_review_repository
+                .get_single_by_document_id(
+                    document_id
+                )
+            )
+
+
+            serialized_human_review = (
+                self._serialize_human_review(
+                    human_review
+                )
+            )
+
+
+            # ==============================================
             # BUILD DOCUMENT RESPONSE
             # ==============================================
 
@@ -91,6 +197,7 @@ class DocumentQueryService:
                         (
                             document.created_at
                             .isoformat()
+
                             if document.created_at
                             else None
                         ),
@@ -99,12 +206,19 @@ class DocumentQueryService:
                         (
                             document.updated_at
                             .isoformat()
+
                             if document.updated_at
                             else None
                         ),
                 },
 
                 "analysis":
+                    None,
+
+                "human_review":
+                    serialized_human_review,
+
+                "final_record":
                     None,
             }
 
@@ -115,7 +229,9 @@ class DocumentQueryService:
 
             if analysis is not None:
 
-                result["analysis"] = {
+                result[
+                    "analysis"
+                ] = {
 
                     "analysis_id":
                         analysis.id,
@@ -145,10 +261,37 @@ class DocumentQueryService:
                         (
                             analysis.created_at
                             .isoformat()
+
                             if analysis.created_at
                             else None
                         ),
                 }
+
+
+                # ==========================================
+                # FINAL / EFFECTIVE RECORD
+                # PHASE 7C.3
+                # ==========================================
+
+                result[
+                    "final_record"
+                ] = (
+                    self.final_record_service
+                    .build(
+                        extraction=(
+                            analysis.extraction
+                            or {}
+                        ),
+
+                        machine_review_decision=(
+                            analysis.review_decision
+                        ),
+
+                        human_review=(
+                            serialized_human_review
+                        ),
+                    )
+                )
 
 
             return result
@@ -240,6 +383,7 @@ class DocumentQueryService:
                             (
                                 event.created_at
                                 .isoformat()
+
                                 if event.created_at
                                 else None
                             ),
@@ -252,7 +396,9 @@ class DocumentQueryService:
                     document_id,
 
                 "event_count":
-                    len(events),
+                    len(
+                        events
+                    ),
 
                 "events":
                     events,
@@ -277,6 +423,7 @@ class DocumentQueryService:
 
         normalized_priority = (
             priority.upper().strip()
+
             if priority is not None
             else None
         )
@@ -284,6 +431,7 @@ class DocumentQueryService:
 
         normalized_document_type = (
             document_type.lower().strip()
+
             if document_type is not None
             else None
         )
@@ -312,6 +460,7 @@ class DocumentQueryService:
                     priority=(
                         normalized_priority
                     ),
+
                     document_type=(
                         normalized_document_type
                     ),
@@ -410,6 +559,7 @@ class DocumentQueryService:
                             (
                                 document.created_at
                                 .isoformat()
+
                                 if document.created_at
                                 else None
                             ),
@@ -418,6 +568,7 @@ class DocumentQueryService:
                             (
                                 analysis.created_at
                                 .isoformat()
+
                                 if analysis.created_at
                                 else None
                             ),
@@ -431,7 +582,9 @@ class DocumentQueryService:
 
             return {
                 "total":
-                    len(documents),
+                    len(
+                        documents
+                    ),
 
                 "filters": {
                     "priority":

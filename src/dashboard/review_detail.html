@@ -264,6 +264,93 @@
                 <div class="review-detail-right">
 
                     <!-- ================================= -->
+                    <!-- FINAL RECORD STATUS -->
+                    <!-- PHASE 7C.3 / 7C.4 -->
+                    <!-- ================================= -->
+
+                    <section class="panel">
+
+                        <div class="panel-header">
+
+                            <div>
+
+                                <h2>
+                                    Final Record Status
+                                </h2>
+
+                                <p>
+                                    Current authoritative state
+                                    of this document.
+                                </p>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="detail-section">
+
+                            <div class="final-status-grid">
+
+                                <div>
+
+                                    <span class="detail-label">
+                                        Final Status
+                                    </span>
+
+                                    <div id="final-status">
+                                        —
+                                    </div>
+
+                                </div>
+
+
+                                <div>
+
+                                    <span class="detail-label">
+                                        Final
+                                    </span>
+
+                                    <strong
+                                        id="final-is-final"
+                                        class="detail-value"
+                                    >
+                                        —
+                                    </strong>
+
+                                </div>
+
+
+                                <div>
+
+                                    <span class="detail-label">
+                                        Downstream Usable
+                                    </span>
+
+                                    <strong
+                                        id="final-is-usable"
+                                        class="detail-value"
+                                    >
+                                        —
+                                    </strong>
+
+                                </div>
+
+                            </div>
+
+
+                            <div
+                                id="final-record-note"
+                                class="final-record-note"
+                            >
+                            </div>
+
+                        </div>
+
+                    </section>
+
+
+                    <!-- ================================= -->
                     <!-- MACHINE DECISION -->
                     <!-- ================================= -->
 
@@ -333,7 +420,7 @@
 
 
                     <!-- ================================= -->
-                    <!-- EXTRACTION -->
+                    <!-- MACHINE EXTRACTION -->
                     <!-- ================================= -->
 
                     <section class="panel">
@@ -343,12 +430,12 @@
                             <div>
 
                                 <h2>
-                                    Extracted Fields
+                                    Machine Extracted Fields
                                 </h2>
 
                                 <p>
-                                    Machine-extracted values
-                                    with supporting OCR evidence.
+                                    Original machine values with
+                                    supporting OCR evidence.
                                 </p>
 
                             </div>
@@ -359,6 +446,41 @@
                         <div
                             id="extraction-fields"
                             class="extraction-fields"
+                        >
+                        </div>
+
+                    </section>
+
+
+                    <!-- ================================= -->
+                    <!-- EFFECTIVE VALUES -->
+                    <!-- PHASE 7C.4 -->
+                    <!-- ================================= -->
+
+                    <section class="panel">
+
+                        <div class="panel-header">
+
+                            <div>
+
+                                <h2>
+                                    Effective Values
+                                </h2>
+
+                                <p>
+                                    Final usable values after
+                                    applying the human review
+                                    decision.
+                                </p>
+
+                            </div>
+
+                        </div>
+
+
+                        <div
+                            id="effective-values"
+                            class="effective-values"
                         >
                         </div>
 
@@ -401,7 +523,7 @@
 
                     <!-- ================================= -->
                     <!-- HUMAN REVIEW -->
-                    <!-- PHASE 7B.8 -->
+                    <!-- PHASE 7B.8 / 7C.4 / 7C.5 -->
                     <!-- ================================= -->
 
                     <section
@@ -418,8 +540,8 @@
                                 </h2>
 
                                 <p>
-                                    Approve, reject or correct
-                                    the machine-extracted result.
+                                    Reviewer decision and final
+                                    correction information.
                                 </p>
 
                             </div>
@@ -427,35 +549,234 @@
                         </div>
 
 
-                        <div class="human-review-form">
+                        <!-- ============================= -->
+                        <!-- REVIEW MESSAGE -->
+                        <!-- ============================= -->
 
-                            <!-- ========================= -->
-                            <!-- REVIEWER -->
-                            <!-- ========================= -->
+                        <div
+                            id="review-message"
+                            class="
+                                review-message
+                                review-panel-message
+                            "
+                            hidden
+                        >
+                        </div>
 
-                            <div class="form-group">
 
-                                <label
-                                    for="reviewer-id"
-                                    class="form-label"
-                                >
-                                    Reviewer ID
-                                    <span class="required-mark">
-                                        *
+                        <!-- ============================= -->
+                        <!-- COMPLETED REVIEW SUMMARY -->
+                        <!-- PHASE 7C.4 -->
+                        <!-- ============================= -->
+
+                        <div
+                            id="completed-review-summary"
+                            class="completed-review-summary"
+                            hidden
+                        >
+
+                            <div class="completed-review-grid">
+
+                                <div>
+
+                                    <span class="detail-label">
+                                        Action
                                     </span>
-                                </label>
 
-                                <input
-                                    id="reviewer-id"
-                                    type="text"
-                                    class="form-control"
-                                    maxlength="100"
-                                    placeholder="e.g. reviewer-001"
-                                    autocomplete="off"
-                                >
+                                    <div
+                                        id="completed-review-action"
+                                    >
+                                        —
+                                    </div>
+
+                                </div>
+
+
+                                <div>
+
+                                    <span class="detail-label">
+                                        Reviewer
+                                    </span>
+
+                                    <strong
+                                        id="completed-reviewer"
+                                        class="detail-value"
+                                    >
+                                        —
+                                    </strong>
+
+                                </div>
+
+
+                                <div>
+
+                                    <span class="detail-label">
+                                        Reviewed At
+                                    </span>
+
+                                    <strong
+                                        id="completed-reviewed-at"
+                                        class="detail-value"
+                                    >
+                                        —
+                                    </strong>
+
+                                </div>
 
                             </div>
 
+
+                            <div class="completed-review-block">
+
+                                <span class="detail-label">
+                                    Notes
+                                </span>
+
+                                <div
+                                    id="completed-review-notes"
+                                    class="completed-review-text"
+                                >
+                                    —
+                                </div>
+
+                            </div>
+
+
+                            <div class="completed-review-block">
+
+                                <span class="detail-label">
+                                    Corrections
+                                </span>
+
+                                <div
+                                    id="completed-review-corrections"
+                                    class="completed-corrections"
+                                >
+                                </div>
+
+                            </div>
+
+                        </div>
+
+
+                        <!-- ============================= -->
+                        <!-- REVIEW LOCK MESSAGE -->
+                        <!-- ============================= -->
+
+                        <div
+                            id="review-locked-message"
+                            class="review-locked-message"
+                            hidden
+                        >
+                        </div>
+
+
+                        <!-- ============================= -->
+                        <!-- AUTHENTICATED REVIEWER -->
+                        <!-- PHASE 7C.5 -->
+                        <!-- ============================= -->
+
+                        <div
+                            id="authenticated-reviewer-section"
+                            class="authenticated-reviewer-section"
+                        >
+
+                            <span class="form-label">
+                                Authenticated Reviewer
+                            </span>
+
+
+                            <div
+                                id="authenticated-reviewer-card"
+                                class="authenticated-reviewer-card"
+                            >
+
+                                <div
+                                    id="authenticated-reviewer-loading"
+                                    class="authenticated-reviewer-loading"
+                                >
+                                    Loading authenticated reviewer...
+                                </div>
+
+
+                                <div
+                                    id="authenticated-reviewer-content"
+                                    hidden
+                                >
+
+                                    <div
+                                        class="authenticated-reviewer-header"
+                                    >
+
+                                        <div>
+
+                                            <strong
+                                                id="authenticated-reviewer-name"
+                                                class="
+                                                    authenticated-reviewer-name
+                                                "
+                                            >
+                                                —
+                                            </strong>
+
+
+                                            <div
+                                                class="
+                                                    authenticated-reviewer-meta
+                                                "
+                                            >
+
+                                                <span
+                                                    id="authenticated-reviewer-role"
+                                                    class="reviewer-role-badge"
+                                                >
+                                                    —
+                                                </span>
+
+                                                <span
+                                                    id="authenticated-reviewer-source"
+                                                    class="reviewer-source"
+                                                >
+                                                    —
+                                                </span>
+
+                                            </div>
+
+                                        </div>
+
+
+                                        <div
+                                            id="authenticated-reviewer-access"
+                                            class="reviewer-access-badge"
+                                        >
+                                            —
+                                        </div>
+
+                                    </div>
+
+                                </div>
+
+
+                                <div
+                                    id="authenticated-reviewer-error"
+                                    class="authenticated-reviewer-error"
+                                    hidden
+                                >
+                                </div>
+
+                            </div>
+
+                        </div>
+
+
+                        <!-- ============================= -->
+                        <!-- REVIEW FORM -->
+                        <!-- ============================= -->
+
+                        <div
+                            id="human-review-form"
+                            class="human-review-form"
+                        >
 
                             <!-- ========================= -->
                             <!-- NOTES -->
@@ -472,7 +793,10 @@
 
                                 <textarea
                                     id="review-notes"
-                                    class="form-control review-notes"
+                                    class="
+                                        form-control
+                                        review-notes
+                                    "
                                     rows="4"
                                     placeholder="Optional reviewer notes..."
                                 ></textarea>
@@ -536,18 +860,6 @@
 
 
                             <!-- ========================= -->
-                            <!-- MESSAGE -->
-                            <!-- ========================= -->
-
-                            <div
-                                id="review-message"
-                                class="review-message"
-                                hidden
-                            >
-                            </div>
-
-
-                            <!-- ========================= -->
                             <!-- ACTION BUTTONS -->
                             <!-- ========================= -->
 
@@ -601,6 +913,45 @@
                                     Submit Corrections
                                 </button>
 
+                            </div>
+
+                        </div>
+
+                    </section>
+
+
+                    <!-- ================================= -->
+                    <!-- REVIEW HISTORY -->
+                    <!-- PHASE 7C.4 -->
+                    <!-- ================================= -->
+
+                    <section class="panel">
+
+                        <div class="panel-header">
+
+                            <div>
+
+                                <h2>
+                                    Review History
+                                </h2>
+
+                                <p>
+                                    Immutable machine and human
+                                    review audit timeline.
+                                </p>
+
+                            </div>
+
+                        </div>
+
+
+                        <div
+                            id="review-history-list"
+                            class="review-history-list"
+                        >
+
+                            <div class="detail-empty">
+                                Loading review history...
                             </div>
 
                         </div>

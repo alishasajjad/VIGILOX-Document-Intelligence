@@ -1514,3 +1514,777 @@ textarea {
     }
 
 }
+
+/* ===================================================== */
+/* PHASE 7C.4 — FINAL RECORD STATUS */
+/* ===================================================== */
+
+.final-status-grid {
+    display: grid;
+
+    grid-template-columns:
+        1.4fr
+        0.8fr
+        0.8fr;
+
+    gap: 20px;
+}
+
+
+.final-status-badge {
+    display: inline-flex;
+
+    align-items: center;
+
+    padding: 7px 11px;
+
+    border-radius: 999px;
+
+    font-size: 11px;
+    font-weight: 800;
+
+    letter-spacing: 0.03em;
+}
+
+
+.final-status-success {
+    color: var(--success);
+
+    background: var(--success-soft);
+}
+
+
+.final-status-corrected {
+    color: var(--primary);
+
+    background: var(--primary-soft);
+}
+
+
+.final-status-rejected {
+    color: var(--danger);
+
+    background: var(--danger-soft);
+}
+
+
+.final-status-pending {
+    color: var(--warning);
+
+    background: var(--warning-soft);
+}
+
+
+.final-status-unknown {
+    color: #475467;
+
+    background: #f2f4f7;
+}
+
+
+.final-record-note {
+    margin-top: 20px;
+
+    padding: 12px 14px;
+
+    border: 1px solid var(--border);
+    border-radius: 9px;
+
+    font-size: 13px;
+
+    line-height: 1.6;
+
+    color: var(--text-soft);
+
+    background: #f9fafb;
+}
+
+
+/* ===================================================== */
+/* PHASE 7C.4 — EFFECTIVE VALUES */
+/* ===================================================== */
+
+.effective-values {
+    display: flex;
+
+    flex-direction: column;
+}
+
+
+.effective-value-row {
+    display: grid;
+
+    grid-template-columns:
+        minmax(130px, 0.8fr)
+        minmax(140px, 1fr)
+        minmax(140px, 1fr)
+        minmax(130px, 0.8fr);
+
+    align-items: center;
+
+    gap: 18px;
+
+    padding: 18px 24px;
+
+    border-bottom:
+        1px solid var(--border);
+}
+
+
+.effective-value-row:last-child {
+    border-bottom: 0;
+}
+
+
+.effective-value-corrected {
+    background: #f8fbff;
+}
+
+
+.effective-field-name {
+    font-size: 13px;
+    font-weight: 700;
+
+    color: var(--text-soft);
+}
+
+
+.effective-value-column {
+    min-width: 0;
+}
+
+
+.effective-machine-value {
+    word-break: break-word;
+
+    font-size: 13px;
+
+    color: var(--text-soft);
+}
+
+
+.effective-final-value {
+    word-break: break-word;
+
+    font-size: 14px;
+    font-weight: 700;
+
+    color: var(--text);
+}
+
+
+.effective-value-corrected
+.effective-final-value {
+    color: var(--primary);
+}
+
+
+.effective-source-column {
+    display: flex;
+
+    justify-content: flex-end;
+}
+
+
+.value-source-badge {
+    display: inline-flex;
+
+    align-items: center;
+
+    padding: 5px 8px;
+
+    border-radius: 999px;
+
+    font-size: 10px;
+    font-weight: 700;
+
+    white-space: nowrap;
+}
+
+
+.value-source-machine {
+    color: #475467;
+
+    background: #f2f4f7;
+}
+
+
+.value-source-human {
+    color: var(--primary);
+
+    background: var(--primary-soft);
+}
+
+
+.effective-empty-state {
+    padding: 32px 24px;
+
+    text-align: center;
+
+    line-height: 1.6;
+
+    color: var(--text-soft);
+
+    background: #fafafa;
+}
+
+
+/* ===================================================== */
+/* PHASE 7C.4 — COMPLETED HUMAN REVIEW */
+/* ===================================================== */
+
+.completed-review-summary {
+    padding: 24px;
+}
+
+
+.completed-review-summary[hidden] {
+    display: none;
+}
+
+
+.completed-review-grid {
+    display: grid;
+
+    grid-template-columns:
+        repeat(3, minmax(0, 1fr));
+
+    gap: 20px;
+}
+
+
+.completed-review-block {
+    margin-top: 22px;
+
+    padding-top: 18px;
+
+    border-top:
+        1px solid var(--border);
+}
+
+
+.completed-review-text {
+    font-size: 13px;
+
+    line-height: 1.6;
+
+    color: var(--text);
+}
+
+
+.completed-corrections {
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 8px;
+}
+
+
+.completed-correction-row {
+    display: flex;
+
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 16px;
+
+    padding: 10px 12px;
+
+    border-radius: 8px;
+
+    background: #f8fafc;
+}
+
+
+.completed-correction-field {
+    font-size: 12px;
+    font-weight: 700;
+
+    color: var(--text-soft);
+}
+
+
+.completed-correction-value {
+    text-align: right;
+
+    font-size: 13px;
+    font-weight: 700;
+
+    color: var(--primary);
+
+    word-break: break-word;
+}
+
+
+.human-action-badge {
+    display: inline-flex;
+
+    padding: 6px 10px;
+
+    border-radius: 999px;
+
+    font-size: 11px;
+    font-weight: 800;
+}
+
+
+.human-action-approve {
+    color: var(--success);
+
+    background: var(--success-soft);
+}
+
+
+.human-action-correct {
+    color: var(--primary);
+
+    background: var(--primary-soft);
+}
+
+
+.human-action-reject {
+    color: var(--danger);
+
+    background: var(--danger-soft);
+}
+
+
+/* ===================================================== */
+/* REVIEW LOCKED STATE */
+/* ===================================================== */
+
+.review-locked-message {
+    margin: 24px;
+
+    padding: 16px;
+
+    border: 1px solid var(--border);
+    border-radius: 10px;
+
+    font-size: 13px;
+
+    line-height: 1.6;
+
+    color: var(--text-soft);
+
+    background: #f9fafb;
+}
+
+
+.review-locked-message[hidden] {
+    display: none;
+}
+
+
+.human-review-form[hidden] {
+    display: none;
+}
+
+
+.review-panel-message {
+    margin-left: 24px;
+    margin-right: 24px;
+}
+
+
+/* ===================================================== */
+/* PHASE 7C.4 — REVIEW HISTORY */
+/* ===================================================== */
+
+.review-history-list {
+    position: relative;
+
+    display: flex;
+    flex-direction: column;
+}
+
+
+.history-event {
+    position: relative;
+
+    display: grid;
+
+    grid-template-columns:
+        18px
+        minmax(0, 1fr);
+
+    gap: 12px;
+
+    padding: 22px 24px;
+
+    border-bottom:
+        1px solid var(--border);
+}
+
+
+.history-event:last-child {
+    border-bottom: 0;
+}
+
+
+.history-marker {
+    width: 10px;
+    height: 10px;
+
+    margin-top: 5px;
+
+    border: 3px solid #dbeafe;
+    border-radius: 50%;
+
+    background: var(--primary);
+}
+
+
+.history-event-content {
+    min-width: 0;
+}
+
+
+.history-event-header {
+    display: flex;
+
+    align-items: flex-start;
+    justify-content: space-between;
+
+    gap: 18px;
+}
+
+
+.history-event-title {
+    font-size: 13px;
+}
+
+
+.history-event-actor {
+    margin-top: 4px;
+
+    font-family: monospace;
+    font-size: 11px;
+
+    color: var(--text-soft);
+}
+
+
+.history-event-time {
+    flex-shrink: 0;
+
+    font-size: 11px;
+
+    color: var(--text-soft);
+}
+
+
+.history-event-body {
+    margin-top: 14px;
+}
+
+
+.history-summary-row {
+    display: flex;
+
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 16px;
+
+    padding: 7px 0;
+
+    font-size: 12px;
+}
+
+
+.history-summary-row span {
+    color: var(--text-soft);
+}
+
+
+.history-reason-list {
+    display: flex;
+    flex-wrap: wrap;
+
+    gap: 6px;
+
+    margin-top: 8px;
+}
+
+
+.history-notes {
+    margin-top: 8px;
+
+    padding: 10px 12px;
+
+    border-radius: 8px;
+
+    font-size: 12px;
+
+    line-height: 1.6;
+
+    color: var(--text-soft);
+
+    background: #f8fafc;
+}
+
+
+.history-corrections {
+    margin-top: 10px;
+
+    display: flex;
+    flex-direction: column;
+
+    gap: 6px;
+}
+
+
+.history-correction-row {
+    display: flex;
+
+    justify-content: space-between;
+
+    gap: 16px;
+
+    padding: 8px 10px;
+
+    border-radius: 7px;
+
+    font-size: 12px;
+
+    background: var(--primary-soft);
+}
+
+
+.history-correction-row span {
+    color: var(--text-soft);
+}
+
+
+.history-correction-row strong {
+    text-align: right;
+
+    color: var(--primary);
+
+    word-break: break-word;
+}
+
+
+/* ===================================================== */
+/* PHASE 7C.4 — RESPONSIVE */
+/* ===================================================== */
+
+@media (max-width: 900px) {
+
+    .effective-value-row {
+        grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+    }
+
+
+    .effective-source-column {
+        justify-content: flex-start;
+    }
+
+}
+
+
+@media (max-width: 650px) {
+
+    .final-status-grid {
+        grid-template-columns: 1fr;
+    }
+
+
+    .completed-review-grid {
+        grid-template-columns: 1fr;
+    }
+
+
+    .effective-value-row {
+        grid-template-columns: 1fr;
+    }
+
+
+    .history-event-header {
+        flex-direction: column;
+
+        gap: 6px;
+    }
+
+
+    .history-event-time {
+        white-space: normal;
+    }
+
+
+    .completed-correction-row {
+        flex-direction: column;
+
+        align-items: flex-start;
+    }
+
+
+    .completed-correction-value {
+        text-align: left;
+    }
+
+}
+
+/* ===================================================== */
+/* PHASE 7C.5 — AUTHENTICATED REVIEWER */
+/* ===================================================== */
+
+.authenticated-reviewer-card {
+    padding: 16px;
+
+    border: 1px solid var(--border);
+    border-radius: 10px;
+
+    background: #f9fafb;
+}
+
+
+.authenticated-reviewer-loading {
+    font-size: 13px;
+
+    color: var(--text-soft);
+}
+
+
+.authenticated-reviewer-content[hidden],
+.authenticated-reviewer-error[hidden] {
+    display: none;
+}
+
+
+.authenticated-reviewer-header {
+    display: flex;
+
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 20px;
+}
+
+
+.authenticated-reviewer-name {
+    display: block;
+
+    font-size: 15px;
+
+    color: var(--text);
+}
+
+
+.authenticated-reviewer-meta {
+    display: flex;
+    flex-wrap: wrap;
+
+    align-items: center;
+
+    gap: 8px;
+
+    margin-top: 8px;
+}
+
+
+.reviewer-role-badge {
+    display: inline-flex;
+
+    align-items: center;
+
+    padding: 4px 8px;
+
+    border-radius: 999px;
+
+    font-size: 10px;
+    font-weight: 800;
+
+    color: var(--primary);
+
+    background: var(--primary-soft);
+}
+
+
+.reviewer-source {
+    font-family: monospace;
+    font-size: 10px;
+
+    color: var(--text-soft);
+}
+
+
+.reviewer-access-badge {
+    display: inline-flex;
+
+    flex-shrink: 0;
+
+    padding: 6px 9px;
+
+    border-radius: 999px;
+
+    font-size: 10px;
+    font-weight: 800;
+}
+
+
+.reviewer-access-granted {
+    color: var(--success);
+
+    background: var(--success-soft);
+}
+
+
+.reviewer-access-readonly {
+    color: var(--warning);
+
+    background: var(--warning-soft);
+}
+
+
+.reviewer-card-authorized {
+    border-color: #bbf7d0;
+
+    background: #fafffb;
+}
+
+
+.reviewer-card-readonly {
+    border-color: #fed7aa;
+
+    background: #fffaf5;
+}
+
+
+.reviewer-card-error {
+    border-color: #fecaca;
+
+    background: var(--danger-soft);
+}
+
+
+.authenticated-reviewer-error {
+    font-size: 13px;
+
+    line-height: 1.5;
+
+    color: var(--danger);
+}
+
+
+@media (max-width: 650px) {
+
+    .authenticated-reviewer-header {
+        flex-direction: column;
+
+        align-items: flex-start;
+    }
+
+}
+
+.authenticated-reviewer-section {
+    padding: 24px 24px 0;
+}
+
+
+.authenticated-reviewer-section[hidden] {
+    display: none;
+}

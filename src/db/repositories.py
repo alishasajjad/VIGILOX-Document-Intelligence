@@ -16,6 +16,47 @@ from src.db.models import (
 
 
 # ==========================================================
+# HUMAN REVIEW EXCEPTIONS
+# PHASE 7C.1
+# ==========================================================
+
+class DuplicateHumanReviewError(
+    RuntimeError
+):
+    """
+    Raised when a completed human review already exists
+    for the supplied document.
+
+    Phase 7C.1 rule:
+
+        One document can have only one completed
+        human review.
+
+    This is the application-level protection layer.
+
+    A PostgreSQL UNIQUE constraint on
+    human_reviews.document_id will provide the final
+    database-level concurrency protection.
+    """
+
+    def __init__(
+        self,
+        document_id: str,
+    ):
+
+        self.document_id = (
+            document_id
+        )
+
+        super().__init__(
+            (
+                "A human review already exists "
+                f"for document {document_id}."
+            )
+        )
+
+
+# ==========================================================
 # DOCUMENT REPOSITORY
 # ==========================================================
 
@@ -38,17 +79,31 @@ class DocumentRepository:
     ) -> DocumentModel:
 
         document = DocumentModel(
-            original_filename=original_filename,
-            content_type=content_type,
-            document_type=document_type,
-            processing_status=processing_status,
+            original_filename=(
+                original_filename
+            ),
+
+            content_type=(
+                content_type
+            ),
+
+            document_type=(
+                document_type
+            ),
+
+            processing_status=(
+                processing_status
+            ),
         )
+
 
         self.session.add(
             document
         )
 
+
         self.session.flush()
+
 
         return document
 
@@ -62,6 +117,34 @@ class DocumentRepository:
             DocumentModel,
             document_id,
         )
+    
+    # ======================================================
+    # DELETE DOCUMENT
+    # PHASE 7C.6
+    # ======================================================
+
+    def delete_document(
+        self,
+        document: DocumentModel,
+    ) -> None:
+
+        self.session.delete(
+            document
+        )
+
+
+        # Execute DELETE inside the current transaction.
+        #
+        # PostgreSQL foreign-key ON DELETE CASCADE removes:
+        #
+        #   document_analyses
+        #   human_reviews
+        #   audit_events
+        #
+        # Commit remains controlled by the service-level
+        # SessionLocal.begin() transaction.
+
+        self.session.flush()
 
 
 # ==========================================================
@@ -84,57 +167,65 @@ class DocumentAnalysisRepository:
         pipeline_result: dict,
     ) -> DocumentAnalysisModel:
 
-        analysis = DocumentAnalysisModel(
-            document_id=document_id,
+        analysis = (
+            DocumentAnalysisModel(
 
-            extraction=(
-                pipeline_result[
-                    "extraction"
-                ]
-            ),
+                document_id=(
+                    document_id
+                ),
 
-            ocr_lines=(
-                pipeline_result[
-                    "ocr_lines"
-                ]
-            ),
+                extraction=(
+                    pipeline_result[
+                        "extraction"
+                    ]
+                ),
 
-            evidence_flags=(
-                pipeline_result[
-                    "evidence_flags"
-                ]
-            ),
+                ocr_lines=(
+                    pipeline_result[
+                        "ocr_lines"
+                    ]
+                ),
 
-            field_confidence=(
-                pipeline_result[
-                    "field_confidence"
-                ]
-            ),
+                evidence_flags=(
+                    pipeline_result[
+                        "evidence_flags"
+                    ]
+                ),
 
-            date_validation=(
-                pipeline_result[
-                    "date_validation"
-                ]
-            ),
+                field_confidence=(
+                    pipeline_result[
+                        "field_confidence"
+                    ]
+                ),
 
-            anomaly_validation=(
-                pipeline_result[
-                    "anomaly_validation"
-                ]
-            ),
+                date_validation=(
+                    pipeline_result[
+                        "date_validation"
+                    ]
+                ),
 
-            review_decision=(
-                pipeline_result[
-                    "review_decision"
-                ]
-            ),
+                anomaly_validation=(
+                    pipeline_result[
+                        "anomaly_validation"
+                    ]
+                ),
+
+                review_decision=(
+                    pipeline_result[
+                        "review_decision"
+                    ]
+                ),
+            )
         )
+
 
         self.session.add(
             analysis
         )
 
+
         self.session.flush()
+
 
         return analysis
 
@@ -149,14 +240,18 @@ class DocumentAnalysisRepository:
                 DocumentAnalysisModel
             )
             .where(
-                DocumentAnalysisModel.document_id
+                DocumentAnalysisModel
+                .document_id
                 == document_id
             )
         )
 
+
         return (
             self.session
-            .scalars(statement)
+            .scalars(
+                statement
+            )
             .one_or_none()
         )
 
@@ -174,11 +269,127 @@ class HumanReviewRepository:
         self.session = session
 
 
+    # ======================================================
+    # PHASE 7C.1
+    # CHECK WHETHER DOCUMENT ALREADY HAS A HUMAN REVIEW
+    # ======================================================
+
+    def has_review_for_document(
+        self,
+        document_id: str,
+    ) -> bool:
+
+        statement = (
+            select(
+                exists()
+                .where(
+                    HumanReviewModel
+                    .document_id
+                    == document_id
+                )
+            )
+        )
+
+
+        return bool(
+            self.session.scalar(
+                statement
+            )
+        )
+
+
+    # ======================================================
+    # PHASE 7C.1
+    # GET THE SINGLE HUMAN REVIEW FOR A DOCUMENT
+    # ======================================================
+
+    def get_single_by_document_id(
+        self,
+        document_id: str,
+    ) -> HumanReviewModel | None:
+
+        statement = (
+            select(
+                HumanReviewModel
+            )
+            .where(
+                HumanReviewModel
+                .document_id
+                == document_id
+            )
+            .order_by(
+                HumanReviewModel
+                .reviewed_at
+            )
+            .limit(
+                1
+            )
+        )
+
+
+        return (
+            self.session
+            .scalars(
+                statement
+            )
+            .first()
+        )
+
+
+    # ======================================================
+    # CREATE HUMAN REVIEW
+    # PHASE 7C.1 APPLICATION DUPLICATE GUARD
+    # ======================================================
+
     def create_review(
         self,
         *,
         review_result: dict,
     ) -> HumanReviewModel:
+
+        document_id = (
+            review_result[
+                "document_id"
+            ]
+        )
+
+
+        # ==================================================
+        # DUPLICATE REVIEW PRE-CHECK
+        # ==================================================
+        #
+        # This blocks ordinary sequential duplicate
+        # submissions at the application layer.
+        #
+        # Example:
+        #
+        # Reviewer A:
+        #   APPROVE → accepted
+        #
+        # Reviewer B later:
+        #   REJECT → DuplicateHumanReviewError
+        #
+        # NOTE:
+        # This check alone cannot eliminate a true race
+        # condition where two transactions execute the
+        # check simultaneously.
+        #
+        # PostgreSQL UNIQUE(document_id) will provide the
+        # final concurrency guarantee in the next 7C.1 step.
+        # ==================================================
+
+        if self.has_review_for_document(
+            document_id
+        ):
+
+            raise DuplicateHumanReviewError(
+                document_id
+            )
+
+
+        # ==================================================
+        # REVIEW TIMESTAMP
+        # ==================================================
 
         reviewed_at = (
             review_result[
@@ -186,10 +397,12 @@ class HumanReviewRepository:
             ]
         )
 
+
         if isinstance(
             reviewed_at,
             str,
         ):
+
             reviewed_at = (
                 datetime.fromisoformat(
                     reviewed_at
@@ -197,60 +410,88 @@ class HumanReviewRepository:
             )
 
 
-        review = HumanReviewModel(
-            id=review_result[
-                "review_id"
-            ],
+        # ==================================================
+        # CREATE RECORD
+        # ==================================================
 
-            document_id=review_result[
-                "document_id"
-            ],
+        review = (
+            HumanReviewModel(
 
-            reviewer_id=review_result[
-                "reviewer_id"
-            ],
+                id=(
+                    review_result[
+                        "review_id"
+                    ]
+                ),
 
-            machine_decision=review_result[
-                "machine_decision"
-            ],
+                document_id=(
+                    document_id
+                ),
 
-            machine_priority=review_result[
-                "machine_priority"
-            ],
+                reviewer_id=(
+                    review_result[
+                        "reviewer_id"
+                    ]
+                ),
 
-            machine_reason_codes=(
-                review_result.get(
-                    "machine_reason_codes"
-                )
-                or []
-            ),
+                machine_decision=(
+                    review_result[
+                        "machine_decision"
+                    ]
+                ),
 
-            human_action=review_result[
-                "human_action"
-            ],
+                machine_priority=(
+                    review_result[
+                        "machine_priority"
+                    ]
+                ),
 
-            corrections=(
-                review_result.get(
-                    "corrections"
-                )
-                or {}
-            ),
+                machine_reason_codes=(
+                    review_result.get(
+                        "machine_reason_codes"
+                    )
+                    or []
+                ),
 
-            notes=review_result.get(
-                "notes"
-            ),
+                human_action=(
+                    review_result[
+                        "human_action"
+                    ]
+                ),
 
-            reviewed_at=reviewed_at,
+                corrections=(
+                    review_result.get(
+                        "corrections"
+                    )
+                    or {}
+                ),
+
+                notes=(
+                    review_result.get(
+                        "notes"
+                    )
+                ),
+
+                reviewed_at=(
+                    reviewed_at
+                ),
+            )
         )
+
 
         self.session.add(
             review
         )
 
+
         self.session.flush()
+
 
         return review
 
+
+    # ======================================================
+    # GET REVIEW BY REVIEW ID
+    # ======================================================
 
     def get_review(
         self,
@@ -263,28 +504,48 @@ class HumanReviewRepository:
         )
 
 
+    # ======================================================
+    # GET REVIEWS BY DOCUMENT ID
+    # ======================================================
+    #
+    # This legacy/list method is intentionally preserved
+    # for backward compatibility with existing query,
+    # audit and test code.
+    #
+    # After Phase 7C.1 is fully implemented, normal
+    # production state should contain at most one review
+    # per document.
+    # ======================================================
+
     def get_by_document_id(
         self,
         document_id: str,
-    ) -> list[HumanReviewModel]:
+    ) -> list[
+        HumanReviewModel
+    ]:
 
         statement = (
             select(
                 HumanReviewModel
             )
             .where(
-                HumanReviewModel.document_id
+                HumanReviewModel
+                .document_id
                 == document_id
             )
             .order_by(
-                HumanReviewModel.reviewed_at
+                HumanReviewModel
+                .reviewed_at
             )
         )
 
+
         return list(
-            self.session.scalars(
+            self.session
+            .scalars(
                 statement
-            ).all()
+            )
+            .all()
         )
 
 
@@ -311,19 +572,39 @@ class AuditEventRepository:
         details: dict,
     ) -> AuditEventModel:
 
-        event = AuditEventModel(
-            document_id=document_id,
-            event_type=event_type,
-            actor_type=actor_type,
-            actor_id=actor_id,
-            details=details,
+        event = (
+            AuditEventModel(
+
+                document_id=(
+                    document_id
+                ),
+
+                event_type=(
+                    event_type
+                ),
+
+                actor_type=(
+                    actor_type
+                ),
+
+                actor_id=(
+                    actor_id
+                ),
+
+                details=(
+                    details
+                ),
+            )
         )
+
 
         self.session.add(
             event
         )
 
+
         self.session.flush()
+
 
         return event
 
@@ -331,25 +612,32 @@ class AuditEventRepository:
     def get_by_document_id(
         self,
         document_id: str,
-    ) -> list[AuditEventModel]:
+    ) -> list[
+        AuditEventModel
+    ]:
 
         statement = (
             select(
                 AuditEventModel
             )
             .where(
-                AuditEventModel.document_id
+                AuditEventModel
+                .document_id
                 == document_id
             )
             .order_by(
-                AuditEventModel.created_at
+                AuditEventModel
+                .created_at
             )
         )
 
+
         return list(
-            self.session.scalars(
+            self.session
+            .scalars(
                 statement
-            ).all()
+            )
+            .all()
         )
 
 
@@ -391,6 +679,7 @@ class ReviewQueueRepository:
             .as_string()
         )
 
+
         priority_expression = (
             DocumentAnalysisModel
             .review_decision[
@@ -412,7 +701,8 @@ class ReviewQueueRepository:
         human_review_exists = (
             exists()
             .where(
-                HumanReviewModel.document_id
+                HumanReviewModel
+                .document_id
                 == DocumentModel.id
             )
         )
@@ -422,27 +712,29 @@ class ReviewQueueRepository:
         # PRIORITY ORDER
         # ==================================================
 
-        priority_order = case(
+        priority_order = (
+            case(
 
-            (
-                priority_expression
-                == "HIGH",
-                1,
-            ),
+                (
+                    priority_expression
+                    == "HIGH",
+                    1,
+                ),
 
-            (
-                priority_expression
-                == "MEDIUM",
-                2,
-            ),
+                (
+                    priority_expression
+                    == "MEDIUM",
+                    2,
+                ),
 
-            (
-                priority_expression
-                == "LOW",
-                3,
-            ),
+                (
+                    priority_expression
+                    == "LOW",
+                    3,
+                ),
 
-            else_=4,
+                else_=4,
+            )
         )
 
 
@@ -458,7 +750,8 @@ class ReviewQueueRepository:
 
             .join(
                 DocumentAnalysisModel,
-                DocumentAnalysisModel.document_id
+                DocumentAnalysisModel
+                    .document_id
                 == DocumentModel.id,
             )
 
@@ -497,7 +790,8 @@ class ReviewQueueRepository:
 
             statement = (
                 statement.where(
-                    DocumentModel.document_type
+                    DocumentModel
+                        .document_type
                     == document_type
                 )
             )
@@ -518,7 +812,9 @@ class ReviewQueueRepository:
         statement = (
             statement.order_by(
                 priority_order.asc(),
-                DocumentModel.created_at.asc(),
+                DocumentModel
+                    .created_at
+                    .asc(),
             )
         )
 
@@ -538,8 +834,12 @@ class ReviewQueueRepository:
 
         return [
             (
-                row[0],
-                row[1],
+                row[
+                    0
+                ],
+                row[
+                    1
+                ],
             )
 
             for row

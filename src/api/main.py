@@ -1,4 +1,4 @@
-import shutil
+import logging
 import tempfile
 
 from contextlib import asynccontextmanager
@@ -25,6 +25,22 @@ from fastapi.staticfiles import (
     StaticFiles,
 )
 
+from src.api.error_handlers import (
+    APIError,
+    get_request_id,
+    register_error_handlers,
+)
+
+from src.api.request_context import (
+    register_request_context_middleware,
+)
+
+from src.api.request_validation import (
+    copy_upload_with_limit,
+    normalize_upload_filename,
+    validate_upload_content_type,
+)
+
 from src.api.schemas import (
     HumanReviewRequest,
     ReviewQueueResponse,
@@ -38,12 +54,37 @@ from src.db.query_service import (
     DocumentQueryService,
 )
 
+from src.db.repositories import (
+    DuplicateHumanReviewError,
+)
+
+from src.document_storage_service import (
+    DocumentStorageSecurityError,
+)
+
 from src.human_review_service import (
     HumanReviewService,
 )
 
+from src.operational_logging import (
+    configure_operational_logging,
+    get_operational_logger,
+    log_event,
+    log_exception,
+)
+
 from src.pipeline_service import (
     DocumentPipelineService,
+)
+
+from src.readiness_service import (
+    ReadinessService,
+)
+
+from src.reviewer_identity_service import (
+    ReviewerAuthenticationRequired,
+    ReviewerAuthorizationError,
+    ReviewerIdentityService,
 )
 
 
@@ -55,21 +96,42 @@ load_dotenv()
 
 
 # ==========================================================
-# FILE CONFIGURATION
+# STRUCTURED OPERATIONAL LOGGING
+# PHASE 7C.7d
+# ==========================================================
+#
+# Configuration is idempotent.
+#
+# Repeated imports of this module, and repeated TestClient
+# construction, must never install duplicate handlers.
 # ==========================================================
 
-ALLOWED_CONTENT_TYPES = {
-    "image/jpeg",
-    "image/png",
-    "image/webp",
-}
+configure_operational_logging()
 
 
-CONTENT_TYPE_SUFFIXES = {
-    "image/jpeg": ".jpg",
-    "image/png": ".png",
-    "image/webp": ".webp",
-}
+logger = (
+    get_operational_logger(
+        "api"
+    )
+)
+
+
+# ==========================================================
+# FILE CONFIGURATION
+# PHASE 7C.7b
+# ==========================================================
+#
+# Maximum source document upload size:
+#
+#     10 MiB
+#
+# Actual multipart bytes are counted while streaming.
+# Content-Length is not trusted as the authoritative size.
+# ==========================================================
+
+MAX_UPLOAD_BYTES = (
+    10 * 1024 * 1024
+)
 
 
 # ==========================================================
@@ -156,6 +218,26 @@ async def lifespan(
     )
 
 
+    # ------------------------------------------------------
+    # Reviewer identity / authorization foundation
+    # PHASE 7C.5
+    # ------------------------------------------------------
+
+    app.state.reviewer_identity = (
+        ReviewerIdentityService()
+    )
+
+
+    # ------------------------------------------------------
+    # Dependency readiness service
+    # PHASE 7C.7f
+    # ------------------------------------------------------
+
+    app.state.readiness = (
+        ReadinessService()
+    )
+
+
     yield
 
 
@@ -195,6 +277,22 @@ async def lifespan(
         del app.state.human_review
 
 
+    if hasattr(
+        app.state,
+        "reviewer_identity",
+    ):
+
+        del app.state.reviewer_identity
+
+
+    if hasattr(
+        app.state,
+        "readiness",
+    ):
+
+        del app.state.readiness
+
+
 # ==========================================================
 # FASTAPI APPLICATION
 # ==========================================================
@@ -211,11 +309,37 @@ app = FastAPI(
         "evidence validation, confidence, "
         "anomaly detection, persistent "
         "document storage, PostgreSQL "
-        "persistence, human review and "
+        "persistence, human review, "
+        "reviewer authorization and "
         "audit-history API."
     ),
 
     lifespan=lifespan,
+)
+
+
+# ==========================================================
+# CENTRAL API ERROR CONTRACT
+# PHASE 7C.7a
+# ==========================================================
+
+register_error_handlers(
+    app
+)
+
+
+# ==========================================================
+# REQUEST CORRELATION ID
+# PHASE 7C.7e
+# ==========================================================
+#
+# Registered after the error handlers so every request,
+# including failing ones, carries an authoritative
+# server-generated correlation ID.
+# ==========================================================
+
+register_request_context_middleware(
+    app
 )
 
 
@@ -293,19 +417,11 @@ def review_document_detail(
     document_id: str,
 ):
 
-    # ======================================================
-    # 1. LOCATE REVIEW DETAIL HTML
-    # ======================================================
-
     detail_file = (
         DASHBOARD_DIRECTORY
         / "review_detail.html"
     )
 
-
-    # ======================================================
-    # 2. VERIFY DETAIL PAGE EXISTS
-    # ======================================================
 
     if not detail_file.exists():
 
@@ -317,24 +433,6 @@ def review_document_detail(
             ),
         )
 
-
-    # ======================================================
-    # 3. RETURN DETAIL PAGE
-    # ======================================================
-    #
-    # The document_id is intentionally not injected into
-    # the HTML here.
-    #
-    # review_detail.js reads it from the current URL:
-    #
-    # /review/<document_id>
-    #
-    # and then loads trusted data through:
-    #
-    # GET /api/v1/documents/<document_id>
-    # GET /api/v1/documents/<document_id>/image
-    #
-    # ======================================================
 
     return FileResponse(
         path=(
@@ -357,6 +455,18 @@ def review_document_detail(
 )
 def health_check():
 
+    # ======================================================
+    # PROCESS LIVENESS ONLY
+    # PHASE 7C.7f
+    # ======================================================
+    #
+    # Intentionally dependency-free.
+    #
+    # An orchestrator must never restart an otherwise
+    # healthy process because PostgreSQL or storage is
+    # briefly unavailable. That is what readiness is for.
+    # ======================================================
+
     return {
         "status":
             "ok",
@@ -370,8 +480,315 @@ def health_check():
 
 
 # ==========================================================
+# READINESS CHECK
+# PHASE 7C.7f
+# ==========================================================
+#
+# ENDPOINT CHOICE
+# ----------------------------------------------------------
+#
+#     GET /health/ready
+#
+# The existing API reserves /api/v1/* for versioned business
+# resources and keeps process-level probes unversioned.
+#
+# Readiness is infrastructure rather than a business
+# resource, so it belongs inside the existing /health
+# namespace instead of becoming a new top-level route beside
+# /review and /api/v1.
+#
+# This also maps directly onto standard probe configuration:
+#
+#     livenessProbe   -> /health
+#     readinessProbe  -> /health/ready
+# ==========================================================
+
+@app.get(
+    "/health/ready",
+    tags=["System"],
+)
+def readiness_check(
+    request: Request,
+):
+
+    readiness_service = (
+        getattr(
+            request.app.state,
+            "readiness",
+            None,
+        )
+    )
+
+
+    # ======================================================
+    # READINESS SERVICE ITSELF MISSING
+    # ======================================================
+
+    if readiness_service is None:
+
+        raise APIError(
+            status_code=503,
+
+            code=(
+                "SERVICE_NOT_READY"
+            ),
+
+            message=(
+                "The service is not ready "
+                "to accept requests."
+            ),
+
+            details={
+                "checks": {
+                    "services": {
+                        "status":
+                            "error",
+
+                        "reason":
+                            (
+                                "SERVICE_NOT"
+                                "_INITIALIZED"
+                            ),
+                    },
+                },
+            },
+        )
+
+
+    evaluation = (
+        readiness_service
+        .evaluate(
+            app_state=(
+                request.app.state
+            )
+        )
+    )
+
+
+    checks = (
+        evaluation[
+            "checks"
+        ]
+    )
+
+
+    # ======================================================
+    # READY
+    # ======================================================
+
+    if evaluation[
+        "ready"
+    ]:
+
+        return {
+            "status":
+                "ready",
+
+            "service":
+                "vigilox-document-intelligence",
+
+            "checks":
+                checks,
+        }
+
+
+    # ======================================================
+    # NOT READY
+    # ======================================================
+    #
+    # Each failing dependency is logged server-side with the
+    # request correlation ID and the real exception trace.
+    #
+    # The HTTP response receives only stable reason codes.
+    # ======================================================
+
+    request_id = (
+        get_request_id(
+            request
+        )
+    )
+
+
+    for (
+        check_name,
+        failure,
+    ) in evaluation[
+        "failures"
+    ].items():
+
+        log_exception(
+            logger,
+
+            event=(
+                "readiness_dependency_failed"
+            ),
+
+            message=(
+                "Readiness dependency check "
+                f"failed: {check_name}"
+            ),
+
+            exc=failure,
+
+            request_id=(
+                request_id
+            ),
+
+            status_code=503,
+
+            error_code=(
+                "SERVICE_NOT_READY"
+            ),
+        )
+
+
+    log_event(
+        logger,
+
+        event=(
+            "readiness_check_failed"
+        ),
+
+        message=(
+            "Service readiness check "
+            "failed."
+        ),
+
+        level=(
+            logging.ERROR
+        ),
+
+        request_id=(
+            request_id
+        ),
+
+        status_code=503,
+
+        error_code=(
+            "SERVICE_NOT_READY"
+        ),
+    )
+
+
+    raise APIError(
+        status_code=503,
+
+        code=(
+            "SERVICE_NOT_READY"
+        ),
+
+        message=(
+            "The service is not ready "
+            "to accept requests."
+        ),
+
+        details={
+            "checks":
+                checks,
+        },
+    )
+
+
+# ==========================================================
+# CURRENT REVIEWER IDENTITY
+# PHASE 7C.5 / PHASE 7C.7c
+# ==========================================================
+
+@app.get(
+    "/api/v1/reviewer/me",
+    tags=["Reviews"],
+)
+def get_current_reviewer(
+    request: Request,
+):
+
+    identity_service = (
+        request.app.state
+        .reviewer_identity
+    )
+
+
+    try:
+
+        identity = (
+            identity_service
+            .resolve(
+                headers=(
+                    request.headers
+                )
+            )
+        )
+
+
+    # ======================================================
+    # AUTHENTICATION REQUIRED
+    # ======================================================
+
+    except ReviewerAuthenticationRequired as exc:
+
+        raise APIError(
+            status_code=401,
+
+            code=(
+                "REVIEWER_AUTHENTICATION_REQUIRED"
+            ),
+
+            message=(
+                "Reviewer authentication "
+                "is required."
+            ),
+        ) from exc
+
+
+    # ======================================================
+    # INVALID / UNSUPPORTED ROLE
+    # ======================================================
+
+    except ReviewerAuthorizationError as exc:
+
+        raise APIError(
+            status_code=403,
+
+            code=(
+                "REVIEWER_NOT_AUTHORIZED"
+            ),
+
+            message=str(
+                exc
+            ),
+        ) from exc
+
+
+    can_review = (
+        identity.role
+        in identity_service
+        .REVIEW_WRITE_ROLES
+    )
+
+
+    return {
+        "status":
+            "success",
+
+        "reviewer": {
+            "reviewer_id":
+                identity.reviewer_id,
+
+            "role":
+                identity.role,
+
+            "source":
+                identity.source,
+
+            "can_review":
+                can_review,
+        },
+    }
+
+
+# ==========================================================
 # ANALYZE + PERSIST DOCUMENT
-# PHASE 6 / PHASE 7B
+# PHASE 6 / 7B / 7C.6 / 7C.7b / 7C.7c
 # ==========================================================
 
 @app.post(
@@ -394,49 +811,41 @@ def analyze_document(
     ],
 ):
 
-    # ======================================================
-    # 1. VALIDATE CONTENT TYPE
-    # ======================================================
-
-    content_type = (
-        file.content_type
-        or ""
-    )
-
-
-    if (
-        content_type
-        not in ALLOWED_CONTENT_TYPES
-    ):
-
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "Unsupported file type. "
-                "Supported formats are "
-                "JPG, PNG and WEBP."
-            ),
-        )
-
-
-    # ======================================================
-    # 2. DETERMINE TEMPORARY FILE SUFFIX
-    # ======================================================
-
-    suffix = (
-        CONTENT_TYPE_SUFFIXES[
-            content_type
-        ]
-    )
-
-
     temp_path = None
 
 
     try:
 
         # ==================================================
-        # 3. SAVE UPLOADED DOCUMENT TEMPORARILY
+        # 1. VALIDATE CONTENT TYPE
+        # PHASE 7C.7b
+        # ==================================================
+
+        (
+            content_type,
+            suffix,
+        ) = (
+            validate_upload_content_type(
+                file.content_type
+            )
+        )
+
+
+        # ==================================================
+        # 2. NORMALIZE ORIGINAL FILENAME
+        # PHASE 7C.7b
+        # ==================================================
+
+        original_filename = (
+            normalize_upload_filename(
+                file.filename
+            )
+        )
+
+
+        # ==================================================
+        # 3. BOUNDED TEMPORARY UPLOAD
+        # PHASE 7C.7b
         # ==================================================
 
         with tempfile.NamedTemporaryFile(
@@ -444,18 +853,31 @@ def analyze_document(
             suffix=suffix,
         ) as temp_file:
 
-            shutil.copyfileobj(
-                file.file,
-                temp_file,
-            )
+            # Capture before copy so even failed copies
+            # can be cleaned in finally.
 
             temp_path = (
                 temp_file.name
             )
 
 
+            copy_upload_with_limit(
+                source=(
+                    file.file
+                ),
+
+                destination=(
+                    temp_file
+                ),
+
+                max_bytes=(
+                    MAX_UPLOAD_BYTES
+                ),
+            )
+
+
         # ==================================================
-        # 4. RUN COMPLETE DOCUMENT PIPELINE
+        # 4. DOCUMENT PIPELINE
         # ==================================================
 
         pipeline = (
@@ -471,8 +893,7 @@ def analyze_document(
 
 
         # ==================================================
-        # 5. PERSIST DATABASE RESULT + ORIGINAL DOCUMENT
-        # PHASE 7B
+        # 5. PERSISTENCE + PERMANENT SOURCE STORAGE
         # ==================================================
 
         persistence_service = (
@@ -484,8 +905,7 @@ def analyze_document(
             persistence_service
             .save_processed_document(
                 original_filename=(
-                    file.filename
-                    or "uploaded_document"
+                    original_filename
                 ),
 
                 content_type=(
@@ -504,7 +924,7 @@ def analyze_document(
 
 
         # ==================================================
-        # 6. RETURN PERSISTED API RESPONSE
+        # 6. SUCCESS RESPONSE
         # ==================================================
 
         return {
@@ -527,7 +947,7 @@ def analyze_document(
                 ],
 
             "filename":
-                file.filename,
+                original_filename,
 
             "content_type":
                 content_type,
@@ -547,21 +967,67 @@ def analyze_document(
         }
 
 
+    # ======================================================
+    # STRUCTURED REQUEST / DOMAIN ERROR
+    # ======================================================
+
+    except APIError:
+
+        raise
+
+
+    # ======================================================
+    # EXISTING FASTAPI HTTP ERROR
+    # ======================================================
+
     except HTTPException:
 
         raise
 
 
+    # ======================================================
+    # UNEXPECTED PROCESSING / PERSISTENCE FAILURE
+    # PHASE 7C.7c
+    # ======================================================
+
     except Exception as exc:
 
-        print(
-            "[DOCUMENT ANALYSIS ERROR]",
-            repr(exc),
+        log_exception(
+            logger,
+
+            event=(
+                "document_processing_failed"
+            ),
+
+            message=(
+                "Document processing "
+                "or persistence failed."
+            ),
+
+            exc=exc,
+
+            request_id=(
+                get_request_id(
+                    request
+                )
+            ),
+
+            status_code=500,
+
+            error_code=(
+                "DOCUMENT_PROCESSING_FAILED"
+            ),
         )
 
-        raise HTTPException(
+
+        raise APIError(
             status_code=500,
-            detail=(
+
+            code=(
+                "DOCUMENT_PROCESSING_FAILED"
+            ),
+
+            message=(
                 "Document processing "
                 "or persistence failed."
             ),
@@ -571,7 +1037,7 @@ def analyze_document(
     finally:
 
         # ==================================================
-        # 7. REMOVE TEMPORARY FILE
+        # TEMPORARY FILE CLEANUP
         # ==================================================
 
         if temp_path:
@@ -586,11 +1052,16 @@ def analyze_document(
                 path.unlink()
 
 
+        # ==================================================
+        # UPLOAD STREAM CLEANUP
+        # ==================================================
+
         file.file.close()
 
 
 # ==========================================================
 # GET STORED DOCUMENT + ANALYSIS
+# PHASE 7C.7c
 # ==========================================================
 
 @app.get(
@@ -602,39 +1073,92 @@ def get_document(
     request: Request,
 ):
 
-    # ======================================================
-    # 1. QUERY POSTGRESQL
-    # ======================================================
-
     query_service = (
         request.app.state.document_query
     )
 
 
-    result = (
-        query_service
-        .get_document(
-            document_id
+    # ======================================================
+    # DATABASE QUERY
+    # ======================================================
+
+    try:
+
+        result = (
+            query_service
+            .get_document(
+                document_id
+            )
         )
-    )
+
+
+    except Exception as exc:
+
+        log_exception(
+            logger,
+
+            event=(
+                "document_query_failed"
+            ),
+
+            message=(
+                "Failed to load document."
+            ),
+
+            exc=exc,
+
+            request_id=(
+                get_request_id(
+                    request
+                )
+            ),
+
+            document_id=(
+                document_id
+            ),
+
+            status_code=500,
+
+            error_code=(
+                "DOCUMENT_QUERY_FAILED"
+            ),
+        )
+
+
+        raise APIError(
+            status_code=500,
+
+            code=(
+                "DOCUMENT_QUERY_FAILED"
+            ),
+
+            message=(
+                "Failed to load document."
+            ),
+        ) from exc
 
 
     # ======================================================
-    # 2. DOCUMENT DOES NOT EXIST
+    # DOCUMENT DOES NOT EXIST
     # ======================================================
 
     if result is None:
 
-        raise HTTPException(
+        raise APIError(
             status_code=404,
-            detail=(
+
+            code=(
+                "DOCUMENT_NOT_FOUND"
+            ),
+
+            message=(
                 "Document not found."
             ),
         )
 
 
     # ======================================================
-    # 3. DATABASE INTEGRITY CHECK
+    # DATABASE INTEGRITY CHECK
     # ======================================================
 
     processing_status = (
@@ -659,9 +1183,14 @@ def get_document(
         and analysis is None
     ):
 
-        raise HTTPException(
+        raise APIError(
             status_code=500,
-            detail=(
+
+            code=(
+                "DOCUMENT_ANALYSIS_INTEGRITY_ERROR"
+            ),
+
+            message=(
                 "Stored document analysis "
                 "is missing."
             ),
@@ -669,7 +1198,7 @@ def get_document(
 
 
     # ======================================================
-    # 4. RETURN STORED DOCUMENT
+    # SUCCESS RESPONSE
     # ======================================================
 
     return {
@@ -682,7 +1211,7 @@ def get_document(
 
 # ==========================================================
 # GET ORIGINAL DOCUMENT IMAGE
-# PHASE 7B.4
+# PHASE 7B.4 / PHASE 7C.7c
 # ==========================================================
 
 @app.get(
@@ -694,35 +1223,93 @@ def get_document_image(
     request: Request,
 ):
 
-    # ======================================================
-    # 1. VERIFY DOCUMENT EXISTS IN POSTGRESQL
-    # ======================================================
-
     query_service = (
         request.app.state.document_query
     )
 
 
-    stored_document = (
-        query_service
-        .get_document(
-            document_id
-        )
-    )
+    # ======================================================
+    # 1. LOAD DATABASE DOCUMENT
+    # ======================================================
 
+    try:
+
+        stored_document = (
+            query_service
+            .get_document(
+                document_id
+            )
+        )
+
+
+    except Exception as exc:
+
+        log_exception(
+            logger,
+
+            event=(
+                "document_image_query_failed"
+            ),
+
+            message=(
+                "Failed to load document "
+                "for original image request."
+            ),
+
+            exc=exc,
+
+            request_id=(
+                get_request_id(
+                    request
+                )
+            ),
+
+            document_id=(
+                document_id
+            ),
+
+            status_code=500,
+
+            error_code=(
+                "DOCUMENT_QUERY_FAILED"
+            ),
+        )
+
+
+        raise APIError(
+            status_code=500,
+
+            code=(
+                "DOCUMENT_QUERY_FAILED"
+            ),
+
+            message=(
+                "Failed to load document."
+            ),
+        ) from exc
+
+
+    # ======================================================
+    # 2. DOCUMENT DOES NOT EXIST
+    # ======================================================
 
     if stored_document is None:
 
-        raise HTTPException(
+        raise APIError(
             status_code=404,
-            detail=(
+
+            code=(
+                "DOCUMENT_NOT_FOUND"
+            ),
+
+            message=(
                 "Document not found."
             ),
         )
 
 
     # ======================================================
-    # 2. LOAD TRUSTED DOCUMENT METADATA
+    # 3. TRUSTED STORED METADATA
     # ======================================================
 
     document_metadata = (
@@ -747,7 +1334,7 @@ def get_document_image(
 
 
     # ======================================================
-    # 3. ACCESS DOCUMENT STORAGE SERVICE
+    # 4. STORAGE SERVICE
     # ======================================================
 
     persistence_service = (
@@ -762,7 +1349,7 @@ def get_document_image(
 
 
     # ======================================================
-    # 4. LOCATE ORIGINAL DOCUMENT
+    # 5. LOAD MANAGED ORIGINAL
     # ======================================================
 
     try:
@@ -781,11 +1368,72 @@ def get_document_image(
         )
 
 
+    # ======================================================
+    # STORAGE SECURITY / PATH INTEGRITY ERROR
+    # ======================================================
+
+    except DocumentStorageSecurityError as exc:
+
+        log_exception(
+            logger,
+
+            event=(
+                "document_storage_integrity_error"
+            ),
+
+            message=(
+                "Stored document storage "
+                "metadata is invalid."
+            ),
+
+            exc=exc,
+
+            request_id=(
+                get_request_id(
+                    request
+                )
+            ),
+
+            document_id=(
+                document_id
+            ),
+
+            status_code=500,
+
+            error_code=(
+                "DOCUMENT_STORAGE_INTEGRITY_ERROR"
+            ),
+        )
+
+
+        raise APIError(
+            status_code=500,
+
+            code=(
+                "DOCUMENT_STORAGE_INTEGRITY_ERROR"
+            ),
+
+            message=(
+                "Stored document storage "
+                "metadata is invalid."
+            ),
+        ) from exc
+
+
+    # ======================================================
+    # STORED UNSUPPORTED CONTENT TYPE
+    # ======================================================
+
     except ValueError as exc:
 
-        raise HTTPException(
+        raise APIError(
             status_code=500,
-            detail=(
+
+            code=(
+                "STORED_DOCUMENT_CONTENT_TYPE_INVALID"
+            ),
+
+            message=(
                 "Stored document has an "
                 "unsupported content type."
             ),
@@ -793,14 +1441,71 @@ def get_document_image(
 
 
     # ======================================================
-    # 5. ORIGINAL FILE NOT AVAILABLE
+    # OTHER STORAGE READ FAILURE
+    # ======================================================
+
+    except Exception as exc:
+
+        log_exception(
+            logger,
+
+            event=(
+                "document_storage_read_failed"
+            ),
+
+            message=(
+                "Failed to load original "
+                "document image."
+            ),
+
+            exc=exc,
+
+            request_id=(
+                get_request_id(
+                    request
+                )
+            ),
+
+            document_id=(
+                document_id
+            ),
+
+            status_code=500,
+
+            error_code=(
+                "DOCUMENT_STORAGE_READ_FAILED"
+            ),
+        )
+
+
+        raise APIError(
+            status_code=500,
+
+            code=(
+                "DOCUMENT_STORAGE_READ_FAILED"
+            ),
+
+            message=(
+                "Failed to load original "
+                "document image."
+            ),
+        ) from exc
+
+
+    # ======================================================
+    # 6. ORIGINAL FILE DOES NOT EXIST
     # ======================================================
 
     if original_path is None:
 
-        raise HTTPException(
+        raise APIError(
             status_code=404,
-            detail=(
+
+            code=(
+                "ORIGINAL_DOCUMENT_NOT_AVAILABLE"
+            ),
+
+            message=(
                 "Original document image "
                 "is not available."
             ),
@@ -808,7 +1513,7 @@ def get_document_image(
 
 
     # ======================================================
-    # 6. RETURN ORIGINAL IMAGE
+    # 7. RETURN ORIGINAL SOURCE
     # ======================================================
 
     return FileResponse(
@@ -832,7 +1537,7 @@ def get_document_image(
 
 # ==========================================================
 # GET REVIEW QUEUE
-# PHASE 7A / 7B.6
+# PHASE 7A / 7B.6 / 7C.7c
 # ==========================================================
 
 @app.get(
@@ -890,9 +1595,14 @@ def get_review_queue(
             not in ALLOWED_REVIEW_PRIORITIES
         ):
 
-            raise HTTPException(
+            raise APIError(
                 status_code=400,
-                detail=(
+
+                code=(
+                    "INVALID_REVIEW_PRIORITY"
+                ),
+
+                message=(
                     "Invalid priority. "
                     "Allowed values are "
                     "HIGH, MEDIUM and LOW."
@@ -901,7 +1611,7 @@ def get_review_queue(
 
 
     # ======================================================
-    # 2. NORMALIZE DOCUMENT TYPE FILTER
+    # 2. NORMALIZE DOCUMENT TYPE
     # ======================================================
 
     normalized_document_type = None
@@ -921,9 +1631,14 @@ def get_review_queue(
             not in ALLOWED_DOCUMENT_TYPES
         ):
 
-            raise HTTPException(
+            raise APIError(
                 status_code=400,
-                detail=(
+
+                code=(
+                    "INVALID_DOCUMENT_TYPE"
+                ),
+
+                message=(
                     "Invalid document_type. "
                     "Allowed values are "
                     "guard_license, "
@@ -933,7 +1648,7 @@ def get_review_queue(
 
 
     # ======================================================
-    # 3. QUERY PENDING REVIEW DOCUMENTS
+    # 3. LOAD REVIEW QUEUE
     # ======================================================
 
     query_service = (
@@ -959,29 +1674,54 @@ def get_review_queue(
 
     except Exception as exc:
 
-        print(
-            "[REVIEW QUEUE ERROR]",
-            repr(exc),
+        log_exception(
+            logger,
+
+            event=(
+                "review_queue_load_failed"
+            ),
+
+            message=(
+                "Failed to load "
+                "review queue."
+            ),
+
+            exc=exc,
+
+            request_id=(
+                get_request_id(
+                    request
+                )
+            ),
+
+            status_code=500,
+
+            error_code=(
+                "REVIEW_QUEUE_LOAD_FAILED"
+            ),
         )
 
-        raise HTTPException(
+
+        raise APIError(
             status_code=500,
-            detail=(
+
+            code=(
+                "REVIEW_QUEUE_LOAD_FAILED"
+            ),
+
+            message=(
                 "Failed to load "
                 "review queue."
             ),
         ) from exc
 
 
-    # ======================================================
-    # 4. RETURN QUEUE
-    # ======================================================
-
     return result
 
 
 # ==========================================================
 # SUBMIT HUMAN REVIEW
+# PHASE 7B / 7C.1 / 7C.5 / 7C.7c
 # ==========================================================
 
 @app.post(
@@ -995,31 +1735,148 @@ def submit_human_review(
 ):
 
     # ======================================================
-    # 1. LOAD DOCUMENT FROM POSTGRESQL
+    # 1. RESOLVE TRUSTED REVIEWER IDENTITY
+    # ======================================================
+
+    identity_service = (
+        request.app.state
+        .reviewer_identity
+    )
+
+
+    try:
+
+        reviewer_identity = (
+            identity_service
+            .resolve_reviewer(
+                headers=(
+                    request.headers
+                )
+            )
+        )
+
+
+    # ======================================================
+    # AUTHENTICATION REQUIRED
+    # ======================================================
+
+    except ReviewerAuthenticationRequired as exc:
+
+        raise APIError(
+            status_code=401,
+
+            code=(
+                "REVIEWER_AUTHENTICATION_REQUIRED"
+            ),
+
+            message=(
+                "Reviewer authentication "
+                "is required."
+            ),
+        ) from exc
+
+
+    # ======================================================
+    # REVIEW WRITE NOT AUTHORIZED
+    # ======================================================
+
+    except ReviewerAuthorizationError as exc:
+
+        raise APIError(
+            status_code=403,
+
+            code=(
+                "REVIEWER_NOT_AUTHORIZED"
+            ),
+
+            message=(
+                "Reviewer is not authorized "
+                "to submit human reviews."
+            ),
+        ) from exc
+
+
+    # ======================================================
+    # 2. LOAD DOCUMENT
     # ======================================================
 
     query_service = (
-        request.app.state.document_query
+        request.app.state
+        .document_query
     )
 
 
-    stored_document = (
-        query_service
-        .get_document(
-            document_id
+    try:
+
+        stored_document = (
+            query_service
+            .get_document(
+                document_id
+            )
         )
-    )
+
+
+    except Exception as exc:
+
+        log_exception(
+            logger,
+
+            event=(
+                "review_document_query_failed"
+            ),
+
+            message=(
+                "Failed to load document "
+                "for human review."
+            ),
+
+            exc=exc,
+
+            request_id=(
+                get_request_id(
+                    request
+                )
+            ),
+
+            document_id=(
+                document_id
+            ),
+
+            status_code=500,
+
+            error_code=(
+                "DOCUMENT_QUERY_FAILED"
+            ),
+        )
+
+
+        raise APIError(
+            status_code=500,
+
+            code=(
+                "DOCUMENT_QUERY_FAILED"
+            ),
+
+            message=(
+                "Failed to load document."
+            ),
+        ) from exc
 
 
     # ======================================================
-    # 2. DOCUMENT DOES NOT EXIST
+    # DOCUMENT NOT FOUND
     # ======================================================
 
     if stored_document is None:
 
-        raise HTTPException(
+        raise APIError(
             status_code=404,
-            detail=(
+
+            code=(
+                "DOCUMENT_NOT_FOUND"
+            ),
+
+            message=(
                 "Document not found."
             ),
         )
@@ -1038,9 +1895,14 @@ def submit_human_review(
 
     if analysis is None:
 
-        raise HTTPException(
+        raise APIError(
             status_code=409,
-            detail=(
+
+            code=(
+                "DOCUMENT_ANALYSIS_MISSING"
+            ),
+
+            message=(
                 "Document does not have "
                 "a stored analysis."
             ),
@@ -1048,7 +1910,7 @@ def submit_human_review(
 
 
     # ======================================================
-    # 4. USE TRUSTED MACHINE REVIEW RESULT
+    # 4. LOAD MACHINE REVIEW DECISION
     # ======================================================
 
     machine_review_result = (
@@ -1060,9 +1922,14 @@ def submit_human_review(
 
     if machine_review_result is None:
 
-        raise HTTPException(
+        raise APIError(
             status_code=409,
-            detail=(
+
+            code=(
+                "MACHINE_REVIEW_DECISION_MISSING"
+            ),
+
+            message=(
                 "Stored document does not "
                 "have a machine review "
                 "decision."
@@ -1075,7 +1942,8 @@ def submit_human_review(
     # ======================================================
 
     human_review_service = (
-        request.app.state.human_review
+        request.app.state
+        .human_review
     )
 
 
@@ -1089,7 +1957,8 @@ def submit_human_review(
                 ),
 
                 reviewer_id=(
-                    payload.reviewer_id
+                    reviewer_identity
+                    .reviewer_id
                 ),
 
                 review_result=(
@@ -1113,18 +1982,26 @@ def submit_human_review(
 
     except ValueError as exc:
 
-        raise HTTPException(
+        raise APIError(
             status_code=400,
-            detail=str(exc),
+
+            code=(
+                "INVALID_HUMAN_REVIEW"
+            ),
+
+            message=str(
+                exc
+            ),
         ) from exc
 
 
     # ======================================================
-    # 6. PERSIST HUMAN REVIEW + HUMAN AUDIT EVENT
+    # 6. PERSIST HUMAN REVIEW + AUDIT
     # ======================================================
 
     persistence_service = (
-        request.app.state.persistence
+        request.app.state
+        .persistence
     )
 
 
@@ -1140,24 +2017,96 @@ def submit_human_review(
         )
 
 
-    except ValueError as exc:
+    # ======================================================
+    # DUPLICATE / CONCURRENT HUMAN REVIEW
+    # ======================================================
 
-        raise HTTPException(
-            status_code=400,
-            detail=str(exc),
+    except DuplicateHumanReviewError as exc:
+
+        raise APIError(
+            status_code=409,
+
+            code=(
+                "DOCUMENT_ALREADY_REVIEWED"
+            ),
+
+            message=(
+                "Document has already "
+                "been reviewed."
+            ),
         ) from exc
 
 
+    # ======================================================
+    # DOMAIN PERSISTENCE REJECTION
+    # ======================================================
+
+    except ValueError as exc:
+
+        raise APIError(
+            status_code=400,
+
+            code=(
+                "HUMAN_REVIEW_PERSISTENCE_REJECTED"
+            ),
+
+            message=str(
+                exc
+            ),
+        ) from exc
+
+
+    # ======================================================
+    # UNEXPECTED REVIEW PERSISTENCE FAILURE
+    # ======================================================
+
     except Exception as exc:
 
-        print(
-            "[HUMAN REVIEW PERSISTENCE ERROR]",
-            repr(exc),
+        log_exception(
+            logger,
+
+            event=(
+                "human_review_persistence_failed"
+            ),
+
+            message=(
+                "Human review persistence "
+                "failed."
+            ),
+
+            exc=exc,
+
+            request_id=(
+                get_request_id(
+                    request
+                )
+            ),
+
+            document_id=(
+                document_id
+            ),
+
+            reviewer_id=(
+                reviewer_identity
+                .reviewer_id
+            ),
+
+            status_code=500,
+
+            error_code=(
+                "HUMAN_REVIEW_PERSISTENCE_FAILED"
+            ),
         )
 
-        raise HTTPException(
+
+        raise APIError(
             status_code=500,
-            detail=(
+
+            code=(
+                "HUMAN_REVIEW_PERSISTENCE_FAILED"
+            ),
+
+            message=(
                 "Human review persistence "
                 "failed."
             ),
@@ -1165,7 +2114,7 @@ def submit_human_review(
 
 
     # ======================================================
-    # 7. RETURN PERSISTED REVIEW
+    # 7. SUCCESS RESPONSE
     # ======================================================
 
     return {
@@ -1190,6 +2139,20 @@ def submit_human_review(
                 "human_action"
             ],
 
+        "authenticated_reviewer": {
+            "reviewer_id":
+                reviewer_identity
+                .reviewer_id,
+
+            "role":
+                reviewer_identity
+                .role,
+
+            "source":
+                reviewer_identity
+                .source,
+        },
+
         "review":
             review_result,
     }
@@ -1197,6 +2160,7 @@ def submit_human_review(
 
 # ==========================================================
 # GET DOCUMENT AUDIT HISTORY
+# PHASE 7C.7c
 # ==========================================================
 
 @app.get(
@@ -1208,39 +2172,94 @@ def get_document_history(
     request: Request,
 ):
 
-    # ======================================================
-    # 1. QUERY DOCUMENT AUDIT HISTORY
-    # ======================================================
-
     query_service = (
         request.app.state.document_query
     )
 
 
-    history = (
-        query_service
-        .get_document_history(
-            document_id
+    # ======================================================
+    # LOAD HISTORY
+    # ======================================================
+
+    try:
+
+        history = (
+            query_service
+            .get_document_history(
+                document_id
+            )
         )
-    )
+
+
+    except Exception as exc:
+
+        log_exception(
+            logger,
+
+            event=(
+                "document_history_load_failed"
+            ),
+
+            message=(
+                "Failed to load "
+                "document history."
+            ),
+
+            exc=exc,
+
+            request_id=(
+                get_request_id(
+                    request
+                )
+            ),
+
+            document_id=(
+                document_id
+            ),
+
+            status_code=500,
+
+            error_code=(
+                "DOCUMENT_HISTORY_LOAD_FAILED"
+            ),
+        )
+
+
+        raise APIError(
+            status_code=500,
+
+            code=(
+                "DOCUMENT_HISTORY_LOAD_FAILED"
+            ),
+
+            message=(
+                "Failed to load "
+                "document history."
+            ),
+        ) from exc
 
 
     # ======================================================
-    # 2. DOCUMENT DOES NOT EXIST
+    # DOCUMENT NOT FOUND
     # ======================================================
 
     if history is None:
 
-        raise HTTPException(
+        raise APIError(
             status_code=404,
-            detail=(
+
+            code=(
+                "DOCUMENT_NOT_FOUND"
+            ),
+
+            message=(
                 "Document not found."
             ),
         )
 
 
     # ======================================================
-    # 3. RETURN COMPLETE AUDIT TIMELINE
+    # SUCCESS RESPONSE
     # ======================================================
 
     return {

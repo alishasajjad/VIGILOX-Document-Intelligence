@@ -6,6 +6,7 @@ from sqlalchemy import (
     ForeignKey,
     String,
     Text,
+    UniqueConstraint,
     func,
 )
 
@@ -88,7 +89,9 @@ class DocumentModel(Base):
 
 class DocumentAnalysisModel(Base):
 
-    __tablename__ = "document_analyses"
+    __tablename__ = (
+        "document_analyses"
+    )
 
     id: Mapped[str] = mapped_column(
         String(36),
@@ -106,14 +109,18 @@ class DocumentAnalysisModel(Base):
         index=True,
     )
 
-    extraction: Mapped[dict] = mapped_column(
-        JSONB,
-        nullable=False,
+    extraction: Mapped[dict] = (
+        mapped_column(
+            JSONB,
+            nullable=False,
+        )
     )
 
-    ocr_lines: Mapped[list] = mapped_column(
-        JSONB,
-        nullable=False,
+    ocr_lines: Mapped[list] = (
+        mapped_column(
+            JSONB,
+            nullable=False,
+        )
     )
 
     evidence_flags: Mapped[list] = (
@@ -162,11 +169,42 @@ class DocumentAnalysisModel(Base):
 
 # ==========================================================
 # HUMAN REVIEW
+# PHASE 7C.1
 # ==========================================================
 
 class HumanReviewModel(Base):
 
-    __tablename__ = "human_reviews"
+    __tablename__ = (
+        "human_reviews"
+    )
+
+    # ======================================================
+    # ONE COMPLETED HUMAN REVIEW PER DOCUMENT
+    # ======================================================
+    #
+    # Phase 7C.1 production rule:
+    #
+    # A document can have at most one completed
+    # human-review record.
+    #
+    # This database constraint is the final protection
+    # against concurrent reviewers submitting conflicting
+    # decisions for the same document.
+    #
+    # Application-level checks improve the normal UX,
+    # while this constraint protects against race
+    # conditions.
+    # ======================================================
+
+    __table_args__ = (
+        UniqueConstraint(
+            "document_id",
+            name=(
+                "uq_human_reviews_"
+                "document_id"
+            ),
+        ),
+    )
 
     id: Mapped[str] = mapped_column(
         String(36),
@@ -174,18 +212,22 @@ class HumanReviewModel(Base):
         default=lambda: str(uuid4()),
     )
 
-    document_id: Mapped[str] = mapped_column(
-        ForeignKey(
-            "documents.id",
-            ondelete="CASCADE",
-        ),
-        nullable=False,
-        index=True,
+    document_id: Mapped[str] = (
+        mapped_column(
+            ForeignKey(
+                "documents.id",
+                ondelete="CASCADE",
+            ),
+            nullable=False,
+            index=True,
+        )
     )
 
-    reviewer_id: Mapped[str] = mapped_column(
-        String(100),
-        nullable=False,
+    reviewer_id: Mapped[str] = (
+        mapped_column(
+            String(100),
+            nullable=False,
+        )
     )
 
     machine_decision: Mapped[
@@ -247,7 +289,9 @@ class HumanReviewModel(Base):
 
 class AuditEventModel(Base):
 
-    __tablename__ = "audit_events"
+    __tablename__ = (
+        "audit_events"
+    )
 
     id: Mapped[str] = mapped_column(
         String(36),
@@ -255,23 +299,29 @@ class AuditEventModel(Base):
         default=lambda: str(uuid4()),
     )
 
-    document_id: Mapped[str] = mapped_column(
-        ForeignKey(
-            "documents.id",
-            ondelete="CASCADE",
-        ),
-        nullable=False,
-        index=True,
+    document_id: Mapped[str] = (
+        mapped_column(
+            ForeignKey(
+                "documents.id",
+                ondelete="CASCADE",
+            ),
+            nullable=False,
+            index=True,
+        )
     )
 
-    event_type: Mapped[str] = mapped_column(
-        String(100),
-        nullable=False,
+    event_type: Mapped[str] = (
+        mapped_column(
+            String(100),
+            nullable=False,
+        )
     )
 
-    actor_type: Mapped[str] = mapped_column(
-        String(50),
-        nullable=False,
+    actor_type: Mapped[str] = (
+        mapped_column(
+            String(50),
+            nullable=False,
+        )
     )
 
     actor_id: Mapped[
@@ -281,10 +331,12 @@ class AuditEventModel(Base):
         nullable=True,
     )
 
-    details: Mapped[dict] = mapped_column(
-        JSONB,
-        nullable=False,
-        default=dict,
+    details: Mapped[dict] = (
+        mapped_column(
+            JSONB,
+            nullable=False,
+            default=dict,
+        )
     )
 
     created_at: Mapped[datetime] = (

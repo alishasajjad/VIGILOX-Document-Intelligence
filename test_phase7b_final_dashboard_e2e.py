@@ -2,12 +2,21 @@ import tempfile
 
 from pathlib import Path
 
-from fastapi.testclient import TestClient
-from sqlalchemy import select
+from fastapi.testclient import (
+    TestClient,
+)
 
-from src.api.main import app
+from sqlalchemy import (
+    select,
+)
 
-from src.db.database import SessionLocal
+from src.api.main import (
+    app,
+)
+
+from src.db.database import (
+    SessionLocal,
+)
 
 from src.db.models import (
     AuditEventModel,
@@ -31,6 +40,10 @@ from src.human_review_service import (
     HumanReviewService,
 )
 
+from src.reviewer_identity_service import (
+    ReviewerIdentityService,
+)
+
 
 # ==========================================================
 # TEST CONSTANTS
@@ -40,9 +53,20 @@ ORIGINAL_FILENAME = (
     "phase7b_final_guard.jpg"
 )
 
+
 ORIGINAL_BYTES = (
     b"VIGILOX-PHASE-7B-FINAL-"
     b"ORIGINAL-DOCUMENT"
+)
+
+
+REVIEWER_ID = (
+    "phase7b-final-reviewer"
+)
+
+
+REVIEWER_ROLE = (
+    "REVIEWER"
 )
 
 
@@ -100,7 +124,13 @@ class FakePipeline:
 
 
         return {
+
+            # ==============================================
+            # MACHINE EXTRACTION
+            # ==============================================
+
             "extraction": {
+
                 "document_type":
                     "guard_license",
 
@@ -169,7 +199,13 @@ class FakePipeline:
                 },
             },
 
+
+            # ==============================================
+            # OCR LINES
+            # ==============================================
+
             "ocr_lines": [
+
                 {
                     "text":
                         "PHASE 7B FINAL USER",
@@ -270,10 +306,21 @@ class FakePipeline:
                 },
             ],
 
+
+            # ==============================================
+            # EVIDENCE FLAGS
+            # ==============================================
+
             "evidence_flags":
                 [],
 
+
+            # ==============================================
+            # FIELD CONFIDENCE
+            # ==============================================
+
             "field_confidence": {
+
                 "full_name":
                     0.998,
 
@@ -296,7 +343,13 @@ class FakePipeline:
                     0.988,
             },
 
+
+            # ==============================================
+            # DATE VALIDATION
+            # ==============================================
+
             "date_validation": {
+
                 "reference_date":
                     "2026-08-19",
 
@@ -321,7 +374,13 @@ class FakePipeline:
                     True,
             },
 
+
+            # ==============================================
+            # ANOMALY VALIDATION
+            # ==============================================
+
             "anomaly_validation": {
+
                 "document_type":
                     "guard_license",
 
@@ -342,7 +401,13 @@ class FakePipeline:
                 ],
             },
 
+
+            # ==============================================
+            # MACHINE REVIEW DECISION
+            # ==============================================
+
             "review_decision": {
+
                 "decision":
                     "REVIEW_REQUIRED",
 
@@ -380,6 +445,25 @@ def assert_equal(
             f"Expected: {expected}\n"
             f"Actual:   {actual}"
         )
+
+
+# ==========================================================
+# REVIEWER AUTH HEADERS
+# PHASE 7C.5
+# ==========================================================
+
+def reviewer_headers(
+    reviewer_id: str,
+    role: str = "REVIEWER",
+) -> dict[str, str]:
+
+    return {
+        "X-VIGILOX-REVIEWER-ID":
+            reviewer_id,
+
+        "X-VIGILOX-REVIEWER-ROLE":
+            role,
+    }
 
 
 # ==========================================================
@@ -451,6 +535,18 @@ def main():
 
             app.state.human_review = (
                 HumanReviewService()
+            )
+
+
+            # ==================================================
+            # PHASE 7C.5
+            # TRUSTED REVIEWER IDENTITY
+            # ==================================================
+
+            app.state.reviewer_identity = (
+                ReviewerIdentityService(
+                    mode="trusted_headers"
+                )
             )
 
 
@@ -800,6 +896,32 @@ def main():
                 )
 
 
+            # ==================================================
+            # PHASE 7C.5 UI CONTRACT
+            # ==================================================
+
+            if (
+                "authenticated-reviewer-card"
+                not in detail_html
+            ):
+
+                raise AssertionError(
+                    "Authenticated reviewer "
+                    "UI is missing."
+                )
+
+
+            if (
+                'id="reviewer-id"'
+                in detail_html
+            ):
+
+                raise AssertionError(
+                    "Legacy editable reviewer "
+                    "ID input still exists."
+                )
+
+
             print(
                 "[PASS] Document review "
                 "detail page available"
@@ -810,9 +932,93 @@ def main():
                 "Correct controls present"
             )
 
+            print(
+                "[PASS] Authenticated reviewer "
+                "UI present"
+            )
+
+            print(
+                "[PASS] Legacy editable reviewer "
+                "ID removed"
+            )
+
 
             # ==================================================
-            # 7. DOCUMENT DETAIL API
+            # 7. CURRENT REVIEWER ENDPOINT
+            # PHASE 7C.5
+            # ==================================================
+
+            response = client.get(
+                "/api/v1/reviewer/me",
+
+                headers=reviewer_headers(
+                    REVIEWER_ID
+                ),
+            )
+
+
+            assert_equal(
+                response.status_code,
+                200,
+                (
+                    "Authenticated reviewer "
+                    "endpoint should return "
+                    "HTTP 200."
+                ),
+            )
+
+
+            reviewer = (
+                response.json()[
+                    "reviewer"
+                ]
+            )
+
+
+            assert_equal(
+                reviewer[
+                    "reviewer_id"
+                ],
+                REVIEWER_ID,
+                (
+                    "Current reviewer endpoint "
+                    "returned wrong reviewer ID."
+                ),
+            )
+
+
+            assert_equal(
+                reviewer[
+                    "role"
+                ],
+                REVIEWER_ROLE,
+                (
+                    "Current reviewer endpoint "
+                    "returned wrong role."
+                ),
+            )
+
+
+            assert_equal(
+                reviewer[
+                    "can_review"
+                ],
+                True,
+                (
+                    "REVIEWER should have "
+                    "review write access."
+                ),
+            )
+
+
+            print(
+                "[PASS] Authenticated reviewer "
+                "resolved through API"
+            )
+
+
+            # ==================================================
+            # 8. DOCUMENT DETAIL API
             # ==================================================
 
             response = client.get(
@@ -905,7 +1111,7 @@ def main():
 
 
             # ==================================================
-            # 8. ORIGINAL IMAGE RETRIEVAL
+            # 9. ORIGINAL IMAGE RETRIEVAL
             # ==================================================
 
             response = client.get(
@@ -961,7 +1167,8 @@ def main():
 
 
             # ==================================================
-            # 9. SUBMIT HUMAN CORRECTION
+            # 10. SUBMIT HUMAN CORRECTION
+            # PHASE 7C.5 TRUSTED IDENTITY
             # ==================================================
 
             corrections = {
@@ -973,6 +1180,38 @@ def main():
             }
 
 
+            review_payload = {
+
+                # ==========================================
+                # IMPORTANT:
+                # reviewer_id intentionally absent.
+                # ==========================================
+
+                "action":
+                    "CORRECT",
+
+                "notes":
+                    (
+                        "Final dashboard E2E "
+                        "correction test."
+                    ),
+
+                "corrections":
+                    corrections,
+            }
+
+
+            if (
+                "reviewer_id"
+                in review_payload
+            ):
+
+                raise AssertionError(
+                    "Client review payload "
+                    "must not contain reviewer_id."
+                )
+
+
             response = client.post(
                 (
                     "/api/v1/documents/"
@@ -980,22 +1219,13 @@ def main():
                     "/reviews"
                 ),
 
-                json={
-                    "reviewer_id":
-                        "phase7b-final-reviewer",
+                headers=reviewer_headers(
+                    REVIEWER_ID
+                ),
 
-                    "action":
-                        "CORRECT",
-
-                    "notes":
-                        (
-                            "Final dashboard E2E "
-                            "correction test."
-                        ),
-
-                    "corrections":
-                        corrections,
-                },
+                json=(
+                    review_payload
+                ),
             )
 
 
@@ -1026,14 +1256,85 @@ def main():
             )
 
 
+            # ==================================================
+            # VERIFY AUTHENTICATED REVIEWER RESPONSE
+            # ==================================================
+
+            authenticated_reviewer = (
+                review_response[
+                    "authenticated_reviewer"
+                ]
+            )
+
+
+            assert_equal(
+                authenticated_reviewer[
+                    "reviewer_id"
+                ],
+                REVIEWER_ID,
+                (
+                    "API did not use trusted "
+                    "reviewer identity."
+                ),
+            )
+
+
+            assert_equal(
+                authenticated_reviewer[
+                    "role"
+                ],
+                REVIEWER_ROLE,
+                (
+                    "Authenticated reviewer "
+                    "role is incorrect."
+                ),
+            )
+
+
+            assert_equal(
+                authenticated_reviewer[
+                    "source"
+                ],
+                "TRUSTED_HEADER",
+                (
+                    "Authenticated reviewer "
+                    "source is incorrect."
+                ),
+            )
+
+
+            assert_equal(
+                review_response[
+                    "review"
+                ][
+                    "reviewer_id"
+                ],
+                REVIEWER_ID,
+                (
+                    "Review result did not use "
+                    "trusted reviewer identity."
+                ),
+            )
+
+
             print(
                 "[PASS] Human CORRECT action "
                 "accepted by API"
             )
 
+            print(
+                "[PASS] Client payload contains "
+                "no reviewer_id"
+            )
+
+            print(
+                "[PASS] API attached trusted "
+                "authenticated reviewer"
+            )
+
 
             # ==================================================
-            # 10. VERIFY HUMAN REVIEW DATABASE RECORD
+            # 11. VERIFY HUMAN REVIEW DATABASE RECORD
             # ==================================================
 
             with SessionLocal() as session:
@@ -1060,10 +1361,10 @@ def main():
 
                 assert_equal(
                     human_review.reviewer_id,
-                    "phase7b-final-reviewer",
+                    REVIEWER_ID,
                     (
-                        "Reviewer ID was not "
-                        "persisted."
+                        "Trusted reviewer ID "
+                        "was not persisted."
                     ),
                 )
 
@@ -1094,13 +1395,18 @@ def main():
             )
 
             print(
+                "[PASS] Trusted reviewer identity "
+                "persisted"
+            )
+
+            print(
                 "[PASS] Human corrections "
                 "persisted"
             )
 
 
             # ==================================================
-            # 11. VERIFY AUDIT HISTORY
+            # 12. VERIFY AUDIT HISTORY API
             # ==================================================
 
             response = client.get(
@@ -1166,6 +1472,50 @@ def main():
                 )
 
 
+            human_history_events = [
+                event
+                for event
+                in events
+                if (
+                    event.get(
+                        "event_type"
+                    )
+                    == "HUMAN_REVIEW"
+                )
+            ]
+
+
+            assert_equal(
+                len(
+                    human_history_events
+                ),
+                1,
+                (
+                    "Expected exactly one "
+                    "HUMAN_REVIEW history event."
+                ),
+            )
+
+
+            human_history = (
+                human_history_events[
+                    0
+                ]
+            )
+
+
+            assert_equal(
+                human_history[
+                    "actor_id"
+                ],
+                REVIEWER_ID,
+                (
+                    "History API should expose "
+                    "trusted reviewer as actor."
+                ),
+            )
+
+
             print(
                 "[PASS] Machine review audit "
                 "present"
@@ -1176,9 +1526,14 @@ def main():
                 "present"
             )
 
+            print(
+                "[PASS] History actor uses "
+                "trusted reviewer identity"
+            )
+
 
             # ==================================================
-            # 12. DIRECT AUDIT DATABASE VERIFICATION
+            # 13. DIRECT AUDIT DATABASE VERIFICATION
             # ==================================================
 
             with SessionLocal() as session:
@@ -1203,33 +1558,62 @@ def main():
                 )
 
 
-                audit_types = {
-                    event.event_type
+                machine_audits = [
+                    event
                     for event
                     in audit_events
-                }
-
-
-                if (
-                    "MACHINE_REVIEW_DECISION"
-                    not in audit_types
-                ):
-
-                    raise AssertionError(
-                        "Machine audit missing "
-                        "from PostgreSQL."
+                    if (
+                        event.event_type
+                        == "MACHINE_REVIEW_DECISION"
                     )
+                ]
 
 
-                if (
-                    "HUMAN_REVIEW"
-                    not in audit_types
-                ):
-
-                    raise AssertionError(
-                        "Human audit missing "
-                        "from PostgreSQL."
+                human_audits = [
+                    event
+                    for event
+                    in audit_events
+                    if (
+                        event.event_type
+                        == "HUMAN_REVIEW"
                     )
+                ]
+
+
+                assert_equal(
+                    len(
+                        machine_audits
+                    ),
+                    1,
+                    (
+                        "Exactly one machine "
+                        "audit should exist."
+                    ),
+                )
+
+
+                assert_equal(
+                    len(
+                        human_audits
+                    ),
+                    1,
+                    (
+                        "Exactly one human "
+                        "audit should exist."
+                    ),
+                )
+
+
+                assert_equal(
+                    human_audits[
+                        0
+                    ].actor_id,
+                    REVIEWER_ID,
+                    (
+                        "PostgreSQL human audit "
+                        "actor_id is incorrect."
+                    ),
+                )
 
 
             print(
@@ -1237,9 +1621,14 @@ def main():
                 "records verified"
             )
 
+            print(
+                "[PASS] Human audit actor_id "
+                "uses trusted reviewer identity"
+            )
+
 
             # ==================================================
-            # 13. REVIEWED DOCUMENT REMOVED FROM QUEUE
+            # 14. REVIEWED DOCUMENT REMOVED FROM QUEUE
             # ==================================================
 
             response = client.get(
@@ -1286,7 +1675,7 @@ def main():
 
 
             # ==================================================
-            # 14. ORIGINAL MACHINE EXTRACTION PRESERVED
+            # 15. ORIGINAL MACHINE EXTRACTION PRESERVED
             # ==================================================
 
             response = client.get(
@@ -1307,8 +1696,13 @@ def main():
             )
 
 
+            reviewed_document = (
+                response.json()
+            )
+
+
             stored_after_review = (
-                response.json()[
+                reviewed_document[
                     "analysis"
                 ]
             )
@@ -1351,6 +1745,125 @@ def main():
             print(
                 "[PASS] Original machine "
                 "extraction preserved"
+            )
+
+
+            # ==================================================
+            # 16. VERIFY FINAL RECORD
+            # ==================================================
+
+            final_record = (
+                reviewed_document[
+                    "final_record"
+                ]
+            )
+
+
+            assert_equal(
+                final_record[
+                    "final_status"
+                ],
+                "CORRECTED",
+                (
+                    "Final record should "
+                    "be CORRECTED."
+                ),
+            )
+
+
+            assert_equal(
+                final_record[
+                    "is_final"
+                ],
+                True,
+                (
+                    "CORRECTED record should "
+                    "be final."
+                ),
+            )
+
+
+            assert_equal(
+                final_record[
+                    "is_usable"
+                ],
+                True,
+                (
+                    "CORRECTED record should "
+                    "be downstream usable."
+                ),
+            )
+
+
+            assert_equal(
+                final_record[
+                    "effective_values"
+                ][
+                    "expiry_date"
+                ],
+                "2027-01-01",
+                (
+                    "Human corrected expiry "
+                    "missing from final record."
+                ),
+            )
+
+
+            assert_equal(
+                final_record[
+                    "effective_values"
+                ][
+                    "issuer"
+                ],
+                "TX DPS SECURITY",
+                (
+                    "Human corrected issuer "
+                    "missing from final record."
+                ),
+            )
+
+
+            assert_equal(
+                final_record[
+                    "value_sources"
+                ][
+                    "expiry_date"
+                ],
+                "HUMAN_CORRECTION",
+                (
+                    "Corrected expiry should "
+                    "show HUMAN_CORRECTION."
+                ),
+            )
+
+
+            assert_equal(
+                final_record[
+                    "value_sources"
+                ][
+                    "issuer"
+                ],
+                "HUMAN_CORRECTION",
+                (
+                    "Corrected issuer should "
+                    "show HUMAN_CORRECTION."
+                ),
+            )
+
+
+            print(
+                "[PASS] Final record is "
+                "CORRECTED and usable"
+            )
+
+            print(
+                "[PASS] Effective values contain "
+                "human corrections"
+            )
+
+            print(
+                "[PASS] Correction provenance "
+                "preserved"
             )
 
 
@@ -1424,6 +1937,7 @@ def main():
                 "persistence",
                 "document_query",
                 "human_review",
+                "reviewer_identity",
             ):
 
                 if hasattr(

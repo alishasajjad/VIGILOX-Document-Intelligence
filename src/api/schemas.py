@@ -13,6 +13,7 @@ from pydantic import (
 
 # ==========================================================
 # HUMAN REVIEW REQUEST
+# PHASE 7C.5
 # ==========================================================
 
 class HumanReviewRequest(BaseModel):
@@ -21,7 +22,27 @@ class HumanReviewRequest(BaseModel):
         extra="forbid"
     )
 
-    reviewer_id: str = Field(
+    # ------------------------------------------------------
+    # DEPRECATED CLIENT FIELD
+    # ------------------------------------------------------
+    #
+    # Kept temporarily so the existing Phase 7B dashboard
+    # does not receive HTTP 422 while Phase 7C.5 is being
+    # rolled out.
+    #
+    # IMPORTANT:
+    # The backend MUST NOT use this value as the
+    # authoritative reviewer identity.
+    #
+    # ReviewerIdentityService resolves the trusted
+    # identity server-side.
+    # ------------------------------------------------------
+
+    reviewer_id: (
+        str
+        | None
+    ) = Field(
+        default=None,
         min_length=1,
         max_length=100,
     )

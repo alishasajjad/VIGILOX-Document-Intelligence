@@ -24,6 +24,24 @@ from src.human_review_service import (
     HumanReviewService,
 )
 
+from src.reviewer_identity_service import (
+    ReviewerIdentityService,
+)
+
+
+# ==========================================================
+# TEST CONSTANTS
+# ==========================================================
+
+REVIEWER_ID = (
+    "phase7a-final-reviewer"
+)
+
+
+REVIEWER_ROLE = (
+    "REVIEWER"
+)
+
 
 # ==========================================================
 # TEST PIPELINE RESULT
@@ -206,6 +224,25 @@ def assert_equal(
 
 
 # ==========================================================
+# REVIEWER AUTH HEADERS
+# PHASE 7C.5 REGRESSION COMPATIBILITY
+# ==========================================================
+
+def reviewer_headers(
+    reviewer_id: str,
+    role: str = "REVIEWER",
+) -> dict[str, str]:
+
+    return {
+        "X-VIGILOX-REVIEWER-ID":
+            reviewer_id,
+
+        "X-VIGILOX-REVIEWER-ROLE":
+            role,
+    }
+
+
+# ==========================================================
 # FIND DOCUMENT IN QUEUE
 # ==========================================================
 
@@ -278,12 +315,37 @@ def main():
             DocumentQueryService()
         )
 
+
         app.state.persistence = (
             PersistenceService()
         )
 
+
         app.state.human_review = (
             HumanReviewService()
+        )
+
+
+        # ==================================================
+        # PHASE 7C.5
+        # TRUSTED REVIEWER IDENTITY
+        # ==================================================
+        #
+        # This old Phase 7A test predates the reviewer
+        # identity trust boundary.
+        #
+        # Production review endpoints no longer trust
+        # reviewer_id from request JSON.
+        #
+        # TestClient therefore uses trusted_headers mode
+        # and supplies the reviewer identity through the
+        # trusted identity headers.
+        # ==================================================
+
+        app.state.reviewer_identity = (
+            ReviewerIdentityService(
+                mode="trusted_headers"
+            )
         )
 
 
@@ -299,7 +361,95 @@ def main():
 
 
         # ==================================================
-        # 2. PERSIST MACHINE-PROCESSED DOCUMENT
+        # 2. VERIFY TRUSTED REVIEWER IDENTITY
+        # PHASE 7C.5
+        # ==================================================
+
+        response = (
+            client.get(
+                "/api/v1/reviewer/me",
+
+                headers=reviewer_headers(
+                    REVIEWER_ID
+                ),
+            )
+        )
+
+
+        assert_equal(
+            response.status_code,
+            200,
+            (
+                "Authenticated reviewer "
+                "endpoint should return "
+                "HTTP 200."
+            ),
+        )
+
+
+        reviewer = (
+            response.json()[
+                "reviewer"
+            ]
+        )
+
+
+        assert_equal(
+            reviewer[
+                "reviewer_id"
+            ],
+            REVIEWER_ID,
+            (
+                "Reviewer endpoint returned "
+                "incorrect reviewer ID."
+            ),
+        )
+
+
+        assert_equal(
+            reviewer[
+                "role"
+            ],
+            REVIEWER_ROLE,
+            (
+                "Reviewer endpoint returned "
+                "incorrect reviewer role."
+            ),
+        )
+
+
+        assert_equal(
+            reviewer[
+                "source"
+            ],
+            "TRUSTED_HEADER",
+            (
+                "Reviewer endpoint returned "
+                "incorrect identity source."
+            ),
+        )
+
+
+        assert_equal(
+            reviewer[
+                "can_review"
+            ],
+            True,
+            (
+                "REVIEWER role should have "
+                "review write access."
+            ),
+        )
+
+
+        print(
+            "[PASS] Trusted reviewer identity "
+            "resolved through API"
+        )
+
+
+        # ==================================================
+        # 3. PERSIST MACHINE-PROCESSED DOCUMENT
         # ==================================================
 
         pipeline_result = (
@@ -389,7 +539,7 @@ def main():
 
 
         # ==================================================
-        # 3. VERIFY DOCUMENT APPEARS IN REVIEW QUEUE
+        # 4. VERIFY DOCUMENT APPEARS IN REVIEW QUEUE
         # ==================================================
 
         response = (
@@ -480,8 +630,43 @@ def main():
 
 
         # ==================================================
-        # 4. SUBMIT HUMAN APPROVAL THROUGH API
+        # 5. SUBMIT HUMAN APPROVAL THROUGH API
+        # PHASE 7C.5 TRUSTED IDENTITY
         # ==================================================
+
+        review_payload = {
+            # ==============================================
+            # reviewer_id intentionally absent.
+            #
+            # Reviewer identity is authoritative only from:
+            #
+            # ReviewerIdentityService
+            # ==============================================
+
+            "action":
+                "APPROVE",
+
+            "notes":
+                (
+                    "Phase 7A final "
+                    "end-to-end approval."
+                ),
+
+            "corrections":
+                None,
+        }
+
+
+        if (
+            "reviewer_id"
+            in review_payload
+        ):
+
+            raise AssertionError(
+                "Client review payload must "
+                "not contain reviewer_id."
+            )
+
 
         review_response = (
             client.post(
@@ -490,22 +675,13 @@ def main():
                     f"{document_id}/reviews"
                 ),
 
-                json={
-                    "reviewer_id":
-                        "phase7a-final-reviewer",
+                headers=reviewer_headers(
+                    REVIEWER_ID
+                ),
 
-                    "action":
-                        "APPROVE",
-
-                    "notes":
-                        (
-                            "Phase 7A final "
-                            "end-to-end approval."
-                        ),
-
-                    "corrections":
-                        None,
-                },
+                json=(
+                    review_payload
+                ),
             )
         )
 
@@ -549,6 +725,67 @@ def main():
         )
 
 
+        # ==================================================
+        # VERIFY AUTHENTICATED REVIEWER
+        # ==================================================
+
+        authenticated_reviewer = (
+            review_body[
+                "authenticated_reviewer"
+            ]
+        )
+
+
+        assert_equal(
+            authenticated_reviewer[
+                "reviewer_id"
+            ],
+            REVIEWER_ID,
+            (
+                "Review API did not use "
+                "trusted reviewer identity."
+            ),
+        )
+
+
+        assert_equal(
+            authenticated_reviewer[
+                "role"
+            ],
+            REVIEWER_ROLE,
+            (
+                "Authenticated reviewer role "
+                "is incorrect."
+            ),
+        )
+
+
+        assert_equal(
+            authenticated_reviewer[
+                "source"
+            ],
+            "TRUSTED_HEADER",
+            (
+                "Authenticated reviewer source "
+                "is incorrect."
+            ),
+        )
+
+
+        assert_equal(
+            review_body[
+                "review"
+            ][
+                "reviewer_id"
+            ],
+            REVIEWER_ID,
+            (
+                "Review result should contain "
+                "trusted reviewer identity."
+            ),
+        )
+
+
         review_id = (
             review_body[
                 "review_id"
@@ -583,6 +820,16 @@ def main():
         )
 
         print(
+            "[PASS] Client payload contains "
+            "no reviewer_id"
+        )
+
+        print(
+            "[PASS] Trusted reviewer identity "
+            "used by API"
+        )
+
+        print(
             "[PASS] Human review persisted"
         )
 
@@ -593,7 +840,7 @@ def main():
 
 
         # ==================================================
-        # 5. VERIFY DOCUMENT DISAPPEARS FROM QUEUE
+        # 6. VERIFY DOCUMENT DISAPPEARS FROM QUEUE
         # ==================================================
 
         response = (
@@ -644,7 +891,7 @@ def main():
 
 
         # ==================================================
-        # 6. VERIFY STORED DOCUMENT STILL EXISTS
+        # 7. VERIFY STORED DOCUMENT STILL EXISTS
         # ==================================================
 
         response = (
@@ -688,6 +935,34 @@ def main():
         )
 
 
+        assert_equal(
+            stored_document[
+                "human_review"
+            ][
+                "reviewer_id"
+            ],
+            REVIEWER_ID,
+            (
+                "Stored human review should "
+                "use trusted reviewer ID."
+            ),
+        )
+
+
+        assert_equal(
+            stored_document[
+                "human_review"
+            ][
+                "human_action"
+            ],
+            "APPROVE",
+            (
+                "Stored human action should "
+                "remain APPROVE."
+            ),
+        )
+
+
         print(
             "[PASS] Stored document remains "
             "available"
@@ -698,9 +973,14 @@ def main():
             "decision preserved"
         )
 
+        print(
+            "[PASS] Stored review uses trusted "
+            "reviewer identity"
+        )
+
 
         # ==================================================
-        # 7. VERIFY AUDIT HISTORY
+        # 8. VERIFY AUDIT HISTORY
         # ==================================================
 
         response = (
@@ -766,6 +1046,45 @@ def main():
             )
 
 
+        human_events = [
+            event
+            for event
+            in events
+            if (
+                event[
+                    "event_type"
+                ]
+                == "HUMAN_REVIEW"
+            )
+        ]
+
+
+        assert_equal(
+            len(
+                human_events
+            ),
+            1,
+            (
+                "Exactly one HUMAN_REVIEW "
+                "event should exist."
+            ),
+        )
+
+
+        assert_equal(
+            human_events[
+                0
+            ][
+                "actor_id"
+            ],
+            REVIEWER_ID,
+            (
+                "Human audit actor should "
+                "use trusted reviewer ID."
+            ),
+        )
+
+
         print(
             "[PASS] Machine audit present "
             "in history"
@@ -776,9 +1095,14 @@ def main():
             "present in history"
         )
 
+        print(
+            "[PASS] Human audit actor uses "
+            "trusted reviewer identity"
+        )
+
 
         # ==================================================
-        # 8. DIRECT POSTGRESQL VERIFICATION
+        # 9. DIRECT POSTGRESQL VERIFICATION
         # ==================================================
 
         with SessionLocal() as session:
@@ -878,6 +1202,7 @@ def main():
             "document_query",
             "persistence",
             "human_review",
+            "reviewer_identity",
         ):
 
             if hasattr(

@@ -1,6 +1,6 @@
 // ==========================================================
 // VIGILOX DOCUMENT REVIEW DETAIL
-// PHASE 7B.7 + PHASE 7B.8
+// PHASE 7B.7 + 7B.8 + 7C.4 + 7C.5
 // ==========================================================
 
 
@@ -30,6 +30,14 @@ let loadedDocumentId = null;
 let loadedDocumentMetadata = {};
 
 let loadedAnalysis = {};
+
+let loadedHumanReview = null;
+
+let loadedFinalRecord = null;
+
+let loadedReviewerIdentity = null;
+
+let reviewerIdentityError = null;
 
 let loadedExtractionValues = {};
 
@@ -126,6 +134,12 @@ const extractionFields =
     );
 
 
+const effectiveValues =
+    document.getElementById(
+        "effective-values"
+    );
+
+
 const anomalyList =
     document.getElementById(
         "anomaly-list"
@@ -133,12 +147,141 @@ const anomalyList =
 
 
 // ==========================================================
+// FINAL RECORD DOM
+// ==========================================================
+
+const finalStatus =
+    document.getElementById(
+        "final-status"
+    );
+
+
+const finalIsFinal =
+    document.getElementById(
+        "final-is-final"
+    );
+
+
+const finalIsUsable =
+    document.getElementById(
+        "final-is-usable"
+    );
+
+
+const finalRecordNote =
+    document.getElementById(
+        "final-record-note"
+    );
+
+
+// ==========================================================
 // HUMAN REVIEW DOM
 // ==========================================================
 
-const reviewerIdInput =
+const humanReviewForm =
     document.getElementById(
-        "reviewer-id"
+        "human-review-form"
+    );
+
+
+const completedReviewSummary =
+    document.getElementById(
+        "completed-review-summary"
+    );
+
+
+const completedReviewAction =
+    document.getElementById(
+        "completed-review-action"
+    );
+
+
+const completedReviewer =
+    document.getElementById(
+        "completed-reviewer"
+    );
+
+
+const completedReviewedAt =
+    document.getElementById(
+        "completed-reviewed-at"
+    );
+
+
+const completedReviewNotes =
+    document.getElementById(
+        "completed-review-notes"
+    );
+
+
+const completedReviewCorrections =
+    document.getElementById(
+        "completed-review-corrections"
+    );
+
+
+const reviewLockedMessage =
+    document.getElementById(
+        "review-locked-message"
+    );
+
+
+// ==========================================================
+// AUTHENTICATED REVIEWER DOM
+// PHASE 7C.5
+// ==========================================================
+
+const authenticatedReviewerSection =
+    document.getElementById(
+        "authenticated-reviewer-section"
+    );
+
+
+const authenticatedReviewerCard =
+    document.getElementById(
+        "authenticated-reviewer-card"
+    );
+
+
+const authenticatedReviewerLoading =
+    document.getElementById(
+        "authenticated-reviewer-loading"
+    );
+
+
+const authenticatedReviewerContent =
+    document.getElementById(
+        "authenticated-reviewer-content"
+    );
+
+
+const authenticatedReviewerName =
+    document.getElementById(
+        "authenticated-reviewer-name"
+    );
+
+
+const authenticatedReviewerRole =
+    document.getElementById(
+        "authenticated-reviewer-role"
+    );
+
+
+const authenticatedReviewerSource =
+    document.getElementById(
+        "authenticated-reviewer-source"
+    );
+
+
+const authenticatedReviewerAccess =
+    document.getElementById(
+        "authenticated-reviewer-access"
+    );
+
+
+const authenticatedReviewerError =
+    document.getElementById(
+        "authenticated-reviewer-error"
     );
 
 
@@ -193,6 +336,12 @@ const correctButton =
 const submitCorrectionButton =
     document.getElementById(
         "submit-correction-button"
+    );
+
+
+const reviewHistoryList =
+    document.getElementById(
+        "review-history-list"
     );
 
 
@@ -252,7 +401,10 @@ function formatDocumentType(
             "SIA Badge",
 
         id_card:
-            "ID Card"
+            "ID Card",
+
+        unknown:
+            "Unknown"
 
     };
 
@@ -261,6 +413,76 @@ function formatDocumentType(
         labels[value]
         || value
         || "Unknown"
+    );
+
+}
+
+
+function formatDateTime(
+    value
+) {
+
+    if (
+        !value
+    ) {
+
+        return "—";
+
+    }
+
+
+    const parsed =
+        new Date(
+            value
+        );
+
+
+    if (
+        Number.isNaN(
+            parsed.getTime()
+        )
+    ) {
+
+        return value;
+
+    }
+
+
+    return parsed.toLocaleString();
+
+}
+
+
+function formatDisplayValue(
+    fieldName,
+    value
+) {
+
+    if (
+        value === null
+        || value === undefined
+        || value === ""
+    ) {
+
+        return "NULL";
+
+    }
+
+
+    if (
+        fieldName
+        === "document_type"
+    ) {
+
+        return formatDocumentType(
+            value
+        );
+
+    }
+
+
+    return String(
+        value
     );
 
 }
@@ -287,6 +509,76 @@ function getPriorityClass(
         case "LOW":
 
             return "priority-low";
+
+
+        default:
+
+            return "";
+
+    }
+
+}
+
+
+function getFinalStatusClass(
+    status
+) {
+
+    switch (
+        status
+    ) {
+
+        case "AUTO_ACCEPTED":
+        case "APPROVED":
+
+            return "final-status-success";
+
+
+        case "CORRECTED":
+
+            return "final-status-corrected";
+
+
+        case "REJECTED":
+
+            return "final-status-rejected";
+
+
+        case "PENDING_REVIEW":
+
+            return "final-status-pending";
+
+
+        default:
+
+            return "final-status-unknown";
+
+    }
+
+}
+
+
+function getHumanActionClass(
+    action
+) {
+
+    switch (
+        action
+    ) {
+
+        case "APPROVE":
+
+            return "human-action-approve";
+
+
+        case "CORRECT":
+
+            return "human-action-correct";
+
+
+        case "REJECT":
+
+            return "human-action-reject";
 
 
         default:
@@ -397,6 +689,289 @@ async function checkApiHealth() {
 
 
 // ==========================================================
+// AUTHENTICATED REVIEWER IDENTITY
+// PHASE 7C.5
+// ==========================================================
+
+function renderReviewerIdentity() {
+
+    authenticatedReviewerLoading.hidden =
+        true;
+
+
+    authenticatedReviewerContent.hidden =
+        true;
+
+
+    authenticatedReviewerError.hidden =
+        true;
+
+
+    authenticatedReviewerCard.classList.remove(
+        "reviewer-card-authorized",
+        "reviewer-card-readonly",
+        "reviewer-card-error"
+    );
+
+
+    // ======================================================
+    // IDENTITY NOT AVAILABLE
+    // ======================================================
+
+    if (
+        !loadedReviewerIdentity
+    ) {
+
+        authenticatedReviewerError.hidden =
+            false;
+
+
+        authenticatedReviewerError.textContent =
+            (
+                reviewerIdentityError
+                || (
+                    "Authenticated reviewer "
+                    + "identity is unavailable."
+                )
+            );
+
+
+        authenticatedReviewerCard.classList.add(
+            "reviewer-card-error"
+        );
+
+
+        return;
+
+    }
+
+
+    // ======================================================
+    // IDENTITY AVAILABLE
+    // ======================================================
+
+    authenticatedReviewerContent.hidden =
+        false;
+
+
+    authenticatedReviewerName.textContent =
+        (
+            loadedReviewerIdentity.reviewer_id
+            || "Unknown reviewer"
+        );
+
+
+    authenticatedReviewerRole.textContent =
+        (
+            loadedReviewerIdentity.role
+            || "UNKNOWN"
+        );
+
+
+    authenticatedReviewerSource.textContent =
+        (
+            loadedReviewerIdentity.source
+            || "UNKNOWN"
+        );
+
+
+    if (
+        loadedReviewerIdentity.can_review
+    ) {
+
+        authenticatedReviewerAccess.textContent =
+            "Review access granted";
+
+
+        authenticatedReviewerAccess.className =
+            (
+                "reviewer-access-badge "
+                + "reviewer-access-granted"
+            );
+
+
+        authenticatedReviewerCard.classList.add(
+            "reviewer-card-authorized"
+        );
+
+    }
+
+    else {
+
+        authenticatedReviewerAccess.textContent =
+            "Read-only access";
+
+
+        authenticatedReviewerAccess.className =
+            (
+                "reviewer-access-badge "
+                + "reviewer-access-readonly"
+            );
+
+
+        authenticatedReviewerCard.classList.add(
+            "reviewer-card-readonly"
+        );
+
+    }
+
+}
+
+
+async function loadReviewerIdentity() {
+
+    loadedReviewerIdentity =
+        null;
+
+
+    reviewerIdentityError =
+        null;
+
+
+    authenticatedReviewerLoading.hidden =
+        false;
+
+
+    authenticatedReviewerContent.hidden =
+        true;
+
+
+    authenticatedReviewerError.hidden =
+        true;
+
+
+    try {
+
+        const response =
+            await fetch(
+                "/api/v1/reviewer/me"
+            );
+
+
+        let body = {};
+
+
+        try {
+
+            body =
+                await response.json();
+
+        }
+
+        catch {
+
+            body = {};
+
+        }
+
+
+        if (
+            !response.ok
+        ) {
+
+            if (
+                response.status
+                === 401
+            ) {
+
+                reviewerIdentityError =
+                    (
+                        body.detail
+                        || (
+                            "Reviewer authentication "
+                            + "is required."
+                        )
+                    );
+
+            }
+
+            else if (
+                response.status
+                === 403
+            ) {
+
+                reviewerIdentityError =
+                    (
+                        body.detail
+                        || (
+                            "Reviewer identity "
+                            + "is not authorized."
+                        )
+                    );
+
+            }
+
+            else {
+
+                reviewerIdentityError =
+                    (
+                        body.detail
+                        || (
+                            "Failed to load "
+                            + "reviewer identity."
+                        )
+                    );
+
+            }
+
+
+            renderReviewerIdentity();
+
+
+            return null;
+
+        }
+
+
+        loadedReviewerIdentity =
+            (
+                body.reviewer
+                || null
+            );
+
+
+        if (
+            !loadedReviewerIdentity
+        ) {
+
+            reviewerIdentityError =
+                (
+                    "Reviewer identity response "
+                    + "is missing reviewer data."
+                );
+
+        }
+
+
+        renderReviewerIdentity();
+
+
+        return (
+            loadedReviewerIdentity
+        );
+
+    }
+
+    catch {
+
+        reviewerIdentityError =
+            (
+                "Unable to contact the reviewer "
+                + "identity service."
+            );
+
+
+        renderReviewerIdentity();
+
+
+        return null;
+
+    }
+
+}
+
+
+// ==========================================================
 // IMAGE
 // ==========================================================
 
@@ -488,6 +1063,142 @@ async function loadOriginalImage(
 
 
 // ==========================================================
+// FINAL RECORD
+// PHASE 7C.4
+// ==========================================================
+
+function renderFinalRecord(
+    finalRecord
+) {
+
+    if (
+        !finalRecord
+    ) {
+
+        finalStatus.innerHTML = `
+            <span class="
+                final-status-badge
+                final-status-unknown
+            ">
+                UNKNOWN
+            </span>
+        `;
+
+
+        finalIsFinal.textContent =
+            "—";
+
+
+        finalIsUsable.textContent =
+            "—";
+
+
+        finalRecordNote.textContent =
+            (
+                "Final record information "
+                + "is not available."
+            );
+
+
+        return;
+
+    }
+
+
+    const status =
+        finalRecord.final_status
+        || "UNKNOWN";
+
+
+    finalStatus.innerHTML = `
+        <span
+            class="
+                final-status-badge
+                ${getFinalStatusClass(status)}
+            "
+        >
+            ${
+                escapeHtml(
+                    status.replaceAll(
+                        "_",
+                        " "
+                    )
+                )
+            }
+        </span>
+    `;
+
+
+    finalIsFinal.textContent =
+        (
+            finalRecord.is_final
+                ? "Yes"
+                : "No"
+        );
+
+
+    finalIsUsable.textContent =
+        (
+            finalRecord.is_usable
+                ? "Yes"
+                : "No"
+        );
+
+
+    const notes = {
+
+        AUTO_ACCEPTED:
+            (
+                "The machine result was "
+                + "auto-accepted and is available "
+                + "for downstream use."
+            ),
+
+        PENDING_REVIEW:
+            (
+                "Human review is required before "
+                + "this document can produce final "
+                + "usable values."
+            ),
+
+        APPROVED:
+            (
+                "A human reviewer approved the "
+                + "machine extraction without changes."
+            ),
+
+        CORRECTED:
+            (
+                "A human reviewer corrected one or "
+                + "more machine-extracted values."
+            ),
+
+        REJECTED:
+            (
+                "A human reviewer rejected this "
+                + "document. No effective values "
+                + "should be used downstream."
+            )
+
+    };
+
+
+    finalRecordNote.textContent =
+        (
+            notes[
+                status
+            ]
+            || (
+                "Final record status is "
+                + status
+                + "."
+            )
+        );
+
+}
+
+
+// ==========================================================
 // MACHINE DECISION
 // ==========================================================
 
@@ -536,6 +1247,7 @@ function renderMachineDecision(
 
         machineReasons.textContent =
             "No machine reason codes.";
+
 
         return;
 
@@ -638,7 +1350,7 @@ function getFieldConfidence(
 
 // ==========================================================
 // OCR EVIDENCE LOOKUP
-// ZERO-BASED VIGILOX LINE IDS
+// EXPLICIT IDs FIRST, LEGACY POSITIONAL FALLBACK
 // ==========================================================
 
 function buildOcrLookup(
@@ -863,6 +1575,7 @@ function renderExtraction(
             </div>
         `;
 
+
         return;
 
     }
@@ -1065,6 +1778,238 @@ function renderExtraction(
 
 
 // ==========================================================
+// EFFECTIVE VALUES
+// PHASE 7C.4
+// ==========================================================
+
+function renderEffectiveValues(
+    finalRecord
+) {
+
+    effectiveValues.innerHTML =
+        "";
+
+
+    if (
+        !finalRecord
+    ) {
+
+        effectiveValues.innerHTML = `
+            <div class="detail-empty">
+                Final record is not available.
+            </div>
+        `;
+
+
+        return;
+
+    }
+
+
+    const machineValues =
+        finalRecord.machine_values
+        || {};
+
+
+    const finalValues =
+        finalRecord.effective_values;
+
+
+    const valueSources =
+        finalRecord.value_sources
+        || {};
+
+
+    if (
+        !finalValues
+    ) {
+
+        let message =
+            "Effective values are not available.";
+
+
+        if (
+            finalRecord.final_status
+            === "PENDING_REVIEW"
+        ) {
+
+            message =
+                (
+                    "Effective values are withheld "
+                    + "until human review is completed."
+                );
+
+        }
+
+
+        if (
+            finalRecord.final_status
+            === "REJECTED"
+        ) {
+
+            message =
+                (
+                    "This document was rejected. "
+                    + "No values are published for "
+                    + "downstream use."
+                );
+
+        }
+
+
+        effectiveValues.innerHTML = `
+            <div class="effective-empty-state">
+                ${escapeHtml(message)}
+            </div>
+        `;
+
+
+        return;
+
+    }
+
+
+    for (
+        const fieldName
+        of CORRECTABLE_FIELDS
+    ) {
+
+        const machineValue =
+            (
+                machineValues[
+                    fieldName
+                ]
+                ?? null
+            );
+
+
+        const effectiveValue =
+            (
+                finalValues[
+                    fieldName
+                ]
+                ?? null
+            );
+
+
+        const source =
+            (
+                valueSources[
+                    fieldName
+                ]
+                || "MACHINE"
+            );
+
+
+        const corrected =
+            (
+                source
+                === "HUMAN_CORRECTION"
+            );
+
+
+        const row =
+            document.createElement(
+                "div"
+            );
+
+
+        row.className =
+            (
+                "effective-value-row"
+                + (
+                    corrected
+                        ? " effective-value-corrected"
+                        : ""
+                )
+            );
+
+
+        row.innerHTML = `
+            <div class="effective-field-name">
+                ${
+                    escapeHtml(
+                        formatFieldName(
+                            fieldName
+                        )
+                    )
+                }
+            </div>
+
+
+            <div class="effective-value-column">
+
+                <span class="detail-label">
+                    Machine
+                </span>
+
+                <div class="effective-machine-value">
+                    ${
+                        escapeHtml(
+                            formatDisplayValue(
+                                fieldName,
+                                machineValue
+                            )
+                        )
+                    }
+                </div>
+
+            </div>
+
+
+            <div class="effective-value-column">
+
+                <span class="detail-label">
+                    Effective
+                </span>
+
+                <div class="effective-final-value">
+                    ${
+                        escapeHtml(
+                            formatDisplayValue(
+                                fieldName,
+                                effectiveValue
+                            )
+                        )
+                    }
+                </div>
+
+            </div>
+
+
+            <div class="effective-source-column">
+
+                <span
+                    class="
+                        value-source-badge
+                        ${
+                            corrected
+                                ? "value-source-human"
+                                : "value-source-machine"
+                        }
+                    "
+                >
+                    ${
+                        corrected
+                            ? "Human Correction"
+                            : "Machine"
+                    }
+                </span>
+
+            </div>
+        `;
+
+
+        effectiveValues.appendChild(
+            row
+        );
+
+    }
+
+}
+
+
+// ==========================================================
 // ANOMALIES
 // ==========================================================
 
@@ -1090,6 +2035,7 @@ function renderAnomalies(
                 No validation issues reported.
             </div>
         `;
+
 
         return;
 
@@ -1222,19 +2168,335 @@ function clearReviewMessage() {
 
 
 // ==========================================================
-// VALIDATE REVIEWER
+// COMPLETED / PENDING HUMAN REVIEW STATE
+// PHASE 7C.4 / 7C.5
 // ==========================================================
 
-function getReviewerId() {
+function renderHumanReviewState(
+    humanReview,
+    finalRecord
+) {
 
-    return (
-        reviewerIdInput
-            .value
-            .trim()
-    );
+    const status =
+        finalRecord?.final_status
+        || "UNKNOWN";
+
+
+    // ======================================================
+    // HUMAN REVIEW ALREADY EXISTS
+    // ======================================================
+
+    if (
+        humanReview
+    ) {
+
+        humanReviewForm.hidden =
+            true;
+
+
+        authenticatedReviewerSection.hidden =
+            true;
+
+
+        reviewLockedMessage.hidden =
+            true;
+
+
+        completedReviewSummary.hidden =
+            false;
+
+
+        const action =
+            humanReview.human_action
+            || "UNKNOWN";
+
+
+        completedReviewAction.innerHTML = `
+            <span
+                class="
+                    human-action-badge
+                    ${getHumanActionClass(action)}
+                "
+            >
+                ${escapeHtml(action)}
+            </span>
+        `;
+
+
+        completedReviewer.textContent =
+            (
+                humanReview.reviewer_id
+                || "—"
+            );
+
+
+        completedReviewedAt.textContent =
+            formatDateTime(
+                humanReview.reviewed_at
+            );
+
+
+        completedReviewNotes.textContent =
+            (
+                humanReview.notes
+                || "No reviewer notes."
+            );
+
+
+        const corrections =
+            humanReview.corrections
+            || {};
+
+
+        const entries =
+            Object.entries(
+                corrections
+            );
+
+
+        completedReviewCorrections.innerHTML =
+            "";
+
+
+        if (
+            entries.length === 0
+        ) {
+
+            completedReviewCorrections.innerHTML = `
+                <div class="muted-text">
+                    No field corrections.
+                </div>
+            `;
+
+        }
+
+        else {
+
+            for (
+                const [
+                    fieldName,
+                    correctedValue
+                ]
+                of entries
+            ) {
+
+                const correction =
+                    document.createElement(
+                        "div"
+                    );
+
+
+                correction.className =
+                    "completed-correction-row";
+
+
+                correction.innerHTML = `
+                    <span class="completed-correction-field">
+                        ${
+                            escapeHtml(
+                                formatFieldName(
+                                    fieldName
+                                )
+                            )
+                        }
+                    </span>
+
+                    <span class="completed-correction-value">
+                        ${
+                            escapeHtml(
+                                formatDisplayValue(
+                                    fieldName,
+                                    correctedValue
+                                )
+                            )
+                        }
+                    </span>
+                `;
+
+
+                completedReviewCorrections.appendChild(
+                    correction
+                );
+
+            }
+
+        }
+
+
+        return;
+
+    }
+
+
+    // ======================================================
+    // PENDING HUMAN REVIEW
+    // ======================================================
+
+    if (
+        status
+        === "PENDING_REVIEW"
+    ) {
+
+        completedReviewSummary.hidden =
+            true;
+
+
+        authenticatedReviewerSection.hidden =
+            false;
+
+
+        correctionPanel.hidden =
+            true;
+
+
+        correctionFields.innerHTML =
+            "";
+
+
+        approveButton.hidden =
+            false;
+
+
+        rejectButton.hidden =
+            false;
+
+
+        correctButton.hidden =
+            false;
+
+
+        submitCorrectionButton.hidden =
+            true;
+
+
+        cancelCorrectionButton.hidden =
+            false;
+
+
+        setReviewSubmitting(
+            false
+        );
+
+
+        // ==================================================
+        // AUTHORIZED REVIEWER
+        // ==================================================
+
+        if (
+            loadedReviewerIdentity
+            && loadedReviewerIdentity.can_review
+        ) {
+
+            reviewLockedMessage.hidden =
+                true;
+
+
+            humanReviewForm.hidden =
+                false;
+
+
+            return;
+
+        }
+
+
+        // ==================================================
+        // NO AUTHORIZED REVIEWER
+        // ==================================================
+
+        humanReviewForm.hidden =
+            true;
+
+
+        reviewLockedMessage.hidden =
+            false;
+
+
+        if (
+            loadedReviewerIdentity
+            && !loadedReviewerIdentity.can_review
+        ) {
+
+            reviewLockedMessage.textContent =
+                (
+                    "The authenticated user "
+                    + `${loadedReviewerIdentity.reviewer_id} `
+                    + "has read-only access and cannot "
+                    + "submit human review decisions."
+                );
+
+        }
+
+        else {
+
+            reviewLockedMessage.textContent =
+                (
+                    reviewerIdentityError
+                    || (
+                        "Reviewer authentication "
+                        + "is required before this "
+                        + "document can be reviewed."
+                    )
+                );
+
+        }
+
+
+        return;
+
+    }
+
+
+    // ======================================================
+    // FINAL MACHINE STATE / NO HUMAN REVIEW REQUIRED
+    // ======================================================
+
+    completedReviewSummary.hidden =
+        true;
+
+
+    authenticatedReviewerSection.hidden =
+        true;
+
+
+    humanReviewForm.hidden =
+        true;
+
+
+    reviewLockedMessage.hidden =
+        false;
+
+
+    if (
+        status
+        === "AUTO_ACCEPTED"
+    ) {
+
+        reviewLockedMessage.textContent =
+            (
+                "This document was auto-accepted "
+                + "by the machine decision and does "
+                + "not require human review."
+            );
+
+    }
+
+    else {
+
+        reviewLockedMessage.textContent =
+            (
+                "This document is not currently "
+                + "available for a new human review."
+            );
+
+    }
 
 }
 
+
+// ==========================================================
+// REVIEW NOTES
+// ==========================================================
 
 function getReviewNotes() {
 
@@ -1415,15 +2677,6 @@ function createCorrectionInput(
         fieldName;
 
 
-    input.dataset.originalWasNull =
-        (
-            originalValue === null
-            || originalValue === undefined
-        )
-            ? "true"
-            : "false";
-
-
     input.value =
         (
             originalValue
@@ -1500,15 +2753,20 @@ function openCorrectionMode() {
 
 
     if (
-        !getReviewerId()
+        !loadedReviewerIdentity
+        || !loadedReviewerIdentity.can_review
     ) {
 
         showReviewMessage(
-            "Reviewer ID is required before correcting the document."
+            (
+                reviewerIdentityError
+                || (
+                    "Authenticated reviewer does "
+                    + "not have permission to "
+                    + "correct this document."
+                )
+            )
         );
-
-
-        reviewerIdInput.focus();
 
 
         return;
@@ -1678,10 +2936,6 @@ function setReviewSubmitting(
         submitting;
 
 
-    reviewerIdInput.disabled =
-        submitting;
-
-
     reviewNotesInput.disabled =
         submitting;
 
@@ -1727,6 +2981,7 @@ function setReviewSubmitting(
 
 // ==========================================================
 // POST HUMAN REVIEW
+// PHASE 7C.5 — NO CLIENT REVIEWER_ID
 // ==========================================================
 
 async function submitHumanReview(
@@ -1746,26 +3001,55 @@ async function submitHumanReview(
     clearReviewMessage();
 
 
-    const reviewerId =
-        getReviewerId();
-
+    // ======================================================
+    // AUTHENTICATED IDENTITY REQUIRED
+    // ======================================================
 
     if (
-        !reviewerId
+        !loadedReviewerIdentity
     ) {
 
         showReviewMessage(
-            "Reviewer ID is required."
+            (
+                reviewerIdentityError
+                || (
+                    "Reviewer authentication "
+                    + "is required."
+                )
+            )
         );
-
-
-        reviewerIdInput.focus();
 
 
         return;
 
     }
 
+
+    // ======================================================
+    // REVIEW WRITE ACCESS REQUIRED
+    // ======================================================
+
+    if (
+        !loadedReviewerIdentity.can_review
+    ) {
+
+        showReviewMessage(
+            (
+                "Authenticated user does not "
+                + "have permission to submit "
+                + "human review decisions."
+            )
+        );
+
+
+        return;
+
+    }
+
+
+    // ======================================================
+    // CORRECTION MUST ACTUALLY CHANGE SOMETHING
+    // ======================================================
 
     if (
         action === "CORRECT"
@@ -1827,16 +3111,23 @@ async function submitHumanReview(
 
     try {
 
-        const payload = {
+        // ==================================================
+        // SECURITY:
+        //
+        // reviewer_id is intentionally NOT included here.
+        //
+        // Backend ReviewerIdentityService determines the
+        // authoritative reviewer identity.
+        // ==================================================
 
-            reviewer_id:
-                reviewerId,
+        const payload = {
 
             action:
                 action,
 
             notes:
                 getReviewNotes()
+
         };
 
 
@@ -1898,51 +3189,40 @@ async function submitHumanReview(
             !response.ok
         ) {
 
-            throw new Error(
-                body.detail
-                || "Human review submission failed."
-            );
+            const error =
+                new Error(
+                    body.detail
+                    || "Human review submission failed."
+                );
+
+
+            error.status =
+                response.status;
+
+
+            throw error;
 
         }
 
 
-        showReviewMessage(
-            (
-                `Review completed successfully: `
-                + `${body.human_action}.`
-            ),
-            "success"
+        setReviewSubmitting(
+            false
         );
 
 
-        approveButton.hidden =
-            true;
+        // ==================================================
+        // RELOAD DOCUMENT TO SHOW FINAL AUTHORITATIVE STATE
+        // ==================================================
+
+        await loadDocument();
 
 
-        rejectButton.hidden =
-            true;
-
-
-        correctButton.hidden =
-            true;
-
-
-        submitCorrectionButton.hidden =
-            true;
-
-
-        cancelCorrectionButton.hidden =
-            true;
-
-
-        setTimeout(
-            () => {
-
-                window.location.href =
-                    "/review";
-
-            },
-            900
+        showReviewMessage(
+            (
+                "Review completed successfully: "
+                + `${body.human_action}.`
+            ),
+            "success"
         );
 
     }
@@ -1951,16 +3231,78 @@ async function submitHumanReview(
         error
     ) {
 
+        setReviewSubmitting(
+            false
+        );
+
+
+        // ==================================================
+        // AUTHENTICATION / AUTHORIZATION CHANGED
+        // ==================================================
+
+        if (
+            error.status === 401
+            || error.status === 403
+        ) {
+
+            await loadReviewerIdentity();
+
+
+            renderHumanReviewState(
+                loadedHumanReview,
+                loadedFinalRecord
+            );
+
+
+            showReviewMessage(
+                (
+                    error.message
+                    || (
+                        "Reviewer authentication "
+                        + "or authorization failed."
+                    )
+                )
+            );
+
+
+            return;
+
+        }
+
+
+        // ==================================================
+        // ANOTHER REVIEWER WON THE RACE
+        // ==================================================
+
+        if (
+            error.status
+            === 409
+        ) {
+
+            await loadDocument();
+
+
+            showReviewMessage(
+                (
+                    error.message
+                    || (
+                        "This document has already "
+                        + "been reviewed."
+                    )
+                )
+            );
+
+
+            return;
+
+        }
+
+
         showReviewMessage(
             (
                 error.message
                 || "Human review submission failed."
             )
-        );
-
-
-        setReviewSubmitting(
-            false
         );
 
     }
@@ -2047,6 +3389,339 @@ submitCorrectionButton.addEventListener(
 
     }
 );
+
+
+// ==========================================================
+// REVIEW HISTORY
+// PHASE 7C.4
+// ==========================================================
+
+function renderReviewHistory(
+    history
+) {
+
+    reviewHistoryList.innerHTML =
+        "";
+
+
+    const events =
+        history?.events
+        || [];
+
+
+    if (
+        events.length === 0
+    ) {
+
+        reviewHistoryList.innerHTML = `
+            <div class="detail-empty">
+                No audit history available.
+            </div>
+        `;
+
+
+        return;
+
+    }
+
+
+    for (
+        const event
+        of events
+    ) {
+
+        const details =
+            event.details
+            || {};
+
+
+        const eventElement =
+            document.createElement(
+                "div"
+            );
+
+
+        eventElement.className =
+            "history-event";
+
+
+        let eventTitle =
+            event.event_type
+            || "AUDIT EVENT";
+
+
+        let summaryHtml =
+            "";
+
+
+        if (
+            event.event_type
+            === "MACHINE_REVIEW_DECISION"
+        ) {
+
+            eventTitle =
+                "Machine Review Decision";
+
+
+            const reasons =
+                details.reason_codes
+                || [];
+
+
+            summaryHtml = `
+                <div class="history-summary-row">
+                    <span>Decision</span>
+                    <strong>
+                        ${
+                            escapeHtml(
+                                details.decision
+                                || "UNKNOWN"
+                            )
+                        }
+                    </strong>
+                </div>
+
+                <div class="history-summary-row">
+                    <span>Priority</span>
+                    <strong>
+                        ${
+                            escapeHtml(
+                                details.priority
+                                || "UNKNOWN"
+                            )
+                        }
+                    </strong>
+                </div>
+
+                <div class="history-reason-list">
+                    ${
+                        reasons.length
+                            ? reasons
+                                .map(
+                                    reason => `
+                                        <span class="reason-code">
+                                            ${
+                                                escapeHtml(
+                                                    reason
+                                                )
+                                            }
+                                        </span>
+                                    `
+                                )
+                                .join("")
+                            : `
+                                <span class="muted-text">
+                                    No reason codes
+                                </span>
+                            `
+                    }
+                </div>
+            `;
+
+        }
+
+
+        if (
+            event.event_type
+            === "HUMAN_REVIEW"
+        ) {
+
+            eventTitle =
+                "Human Review";
+
+
+            const corrections =
+                details.corrections
+                || {};
+
+
+            const correctionEntries =
+                Object.entries(
+                    corrections
+                );
+
+
+            summaryHtml = `
+                <div class="history-summary-row">
+                    <span>Action</span>
+                    <strong>
+                        ${
+                            escapeHtml(
+                                details.human_action
+                                || "UNKNOWN"
+                            )
+                        }
+                    </strong>
+                </div>
+
+                ${
+                    details.notes
+                        ? `
+                            <div class="history-notes">
+                                ${
+                                    escapeHtml(
+                                        details.notes
+                                    )
+                                }
+                            </div>
+                        `
+                        : ""
+                }
+
+                ${
+                    correctionEntries.length
+                        ? `
+                            <div class="history-corrections">
+                                ${
+                                    correctionEntries
+                                        .map(
+                                            ([
+                                                fieldName,
+                                                value
+                                            ]) => `
+                                                <div class="
+                                                    history-correction-row
+                                                ">
+                                                    <span>
+                                                        ${
+                                                            escapeHtml(
+                                                                formatFieldName(
+                                                                    fieldName
+                                                                )
+                                                            )
+                                                        }
+                                                    </span>
+
+                                                    <strong>
+                                                        ${
+                                                            escapeHtml(
+                                                                formatDisplayValue(
+                                                                    fieldName,
+                                                                    value
+                                                                )
+                                                            )
+                                                        }
+                                                    </strong>
+                                                </div>
+                                            `
+                                        )
+                                        .join("")
+                                }
+                            </div>
+                        `
+                        : ""
+                }
+            `;
+
+        }
+
+
+        eventElement.innerHTML = `
+            <div class="history-marker"></div>
+
+            <div class="history-event-content">
+
+                <div class="history-event-header">
+
+                    <div>
+
+                        <strong class="history-event-title">
+                            ${escapeHtml(eventTitle)}
+                        </strong>
+
+                        <div class="history-event-actor">
+                            ${
+                                escapeHtml(
+                                    event.actor_id
+                                    || event.actor_type
+                                    || "Unknown actor"
+                                )
+                            }
+                        </div>
+
+                    </div>
+
+
+                    <time class="history-event-time">
+                        ${
+                            escapeHtml(
+                                formatDateTime(
+                                    event.created_at
+                                )
+                            )
+                        }
+                    </time>
+
+                </div>
+
+
+                <div class="history-event-body">
+                    ${summaryHtml}
+                </div>
+
+            </div>
+        `;
+
+
+        reviewHistoryList.appendChild(
+            eventElement
+        );
+
+    }
+
+}
+
+
+async function loadReviewHistory(
+    documentId
+) {
+
+    try {
+
+        const response =
+            await fetch(
+                (
+                    "/api/v1/documents/"
+                    + encodeURIComponent(
+                        documentId
+                    )
+                    + "/history"
+                )
+            );
+
+
+        if (
+            !response.ok
+        ) {
+
+            throw new Error(
+                "Failed to load audit history."
+            );
+
+        }
+
+
+        const history =
+            await response.json();
+
+
+        renderReviewHistory(
+            history
+        );
+
+    }
+
+    catch {
+
+        reviewHistoryList.innerHTML = `
+            <div class="detail-empty">
+                Review history could not be loaded.
+            </div>
+        `;
+
+    }
+
+}
 
 
 // ==========================================================
@@ -2143,11 +3818,29 @@ async function loadDocument() {
             || {};
 
 
+        loadedHumanReview =
+            data.human_review
+            || null;
+
+
+        loadedFinalRecord =
+            data.final_record
+            || null;
+
+
         loadedExtractionValues =
             buildExtractionValueMap(
                 loadedAnalysis.extraction,
                 loadedDocumentMetadata
             );
+
+
+        // ==================================================
+        // LOAD SERVER-TRUSTED REVIEWER IDENTITY
+        // BEFORE DECIDING WHETHER ACTIONS ARE AVAILABLE
+        // ==================================================
+
+        await loadReviewerIdentity();
 
 
         documentTitle.textContent =
@@ -2169,6 +3862,11 @@ async function loadDocument() {
             );
 
 
+        renderFinalRecord(
+            loadedFinalRecord
+        );
+
+
         renderMachineDecision(
             loadedAnalysis.review_decision
         );
@@ -2181,14 +3879,35 @@ async function loadDocument() {
         );
 
 
+        renderEffectiveValues(
+            loadedFinalRecord
+        );
+
+
         renderAnomalies(
             loadedAnalysis.anomaly_validation
         );
 
 
-        await loadOriginalImage(
-            documentId
+        renderHumanReviewState(
+            loadedHumanReview,
+            loadedFinalRecord
         );
+
+
+        await Promise.all([
+            loadOriginalImage(
+                documentId
+            ),
+
+            loadReviewHistory(
+                documentId
+            )
+        ]);
+
+
+        detailError.hidden =
+            true;
 
 
         detailLoading.hidden =

@@ -1,28 +1,288 @@
 import json
+import logging
 import os
 
 import groq
 from groq import Groq
 
+from src.operational_logging import (
+    get_operational_logger,
+    log_event,
+)
 from src.schemas import DocumentExtraction
+
+
+# ==========================================================
+# STRUCTURED OPERATIONAL LOGGER
+# PHASE 7C.7d
+# ==========================================================
+
+logger = get_operational_logger(
+    "extraction"
+)
 
 
 class ExtractionService:
 
     def __init__(self):
 
-        api_key = os.getenv("GROQ_API_KEY")
+        api_key = os.getenv(
+            "GROQ_API_KEY"
+        )
 
         if not api_key:
+
             raise RuntimeError(
                 "GROQ_API_KEY was not found. "
                 "Make sure .env is loaded before "
                 "creating ExtractionService."
             )
 
+
         self.client = Groq(
             api_key=api_key
         )
+
+
+    # ======================================================
+    # PREPARE OCR EVIDENCE FOR LLM
+    # PHASE 7C.2
+    # ======================================================
+
+    def _prepare_llm_input(
+        self,
+        ocr_lines: list[dict],
+    ) -> list[dict]:
+
+        # ==================================================
+        # SINGLE SOURCE OF TRUTH FOR EVIDENCE IDS
+        # ==================================================
+        #
+        # New OCRService records already contain:
+        #
+        # {
+        #     "line_id": "L0",
+        #     "text": "...",
+        #     "confidence": 0.99,
+        #     "bbox": [...]
+        # }
+        #
+        # ExtractionService must REUSE that line_id exactly.
+        #
+        # It must not generate a second independent
+        # evidence-ID sequence.
+        # ==================================================
+
+        llm_input: list[dict] = []
+
+        seen_line_ids: set[str] = set()
+
+
+        for (
+            index,
+            line,
+        ) in enumerate(
+            ocr_lines
+        ):
+
+            # ==============================================
+            # BASIC OCR LINE STRUCTURE
+            # ==============================================
+
+            if not isinstance(
+                line,
+                dict,
+            ):
+
+                raise ValueError(
+                    (
+                        "Invalid OCR line at "
+                        f"index {index}. "
+                        "Expected a dictionary."
+                    )
+                )
+
+
+            if (
+                "text"
+                not in line
+            ):
+
+                raise ValueError(
+                    (
+                        "OCR line at "
+                        f"index {index} "
+                        "is missing text."
+                    )
+                )
+
+
+            if (
+                "bbox"
+                not in line
+            ):
+
+                raise ValueError(
+                    (
+                        "OCR line at "
+                        f"index {index} "
+                        "is missing bbox."
+                    )
+                )
+
+
+            # ==============================================
+            # EXPLICIT OCR LINE ID
+            # PHASE 7C.2
+            # ==============================================
+
+            line_id = (
+                line.get(
+                    "line_id"
+                )
+            )
+
+
+            # ==============================================
+            # LEGACY BACKWARD COMPATIBILITY
+            # ==============================================
+            #
+            # Older tests / stored fixtures may still
+            # provide OCR dictionaries without line_id:
+            #
+            # {
+            #     "text": "...",
+            #     "confidence": ...,
+            #     "bbox": [...]
+            # }
+            #
+            # During Phase 7C.2 migration they remain
+            # supported using the historical zero-based
+            # positional convention:
+            #
+            # index 0 -> L0
+            # index 1 -> L1
+            #
+            # New OCRService output always supplies an
+            # explicit line_id.
+            # ==============================================
+
+            if (
+                line_id is None
+                or str(
+                    line_id
+                ).strip()
+                == ""
+            ):
+
+                line_id = (
+                    f"L{index}"
+                )
+
+
+            line_id = (
+                str(
+                    line_id
+                )
+                .strip()
+            )
+
+
+            # ==============================================
+            # LINE ID FORMAT VALIDATION
+            # ==============================================
+            #
+            # Allowed:
+            #
+            # L0
+            # L1
+            # L14
+            # L105
+            #
+            # Rejected:
+            #
+            # 0
+            # 14
+            # l14
+            # LINE14
+            # L
+            # L14A
+            # ==============================================
+
+            if (
+                not line_id.startswith(
+                    "L"
+                )
+                or len(
+                    line_id
+                ) < 2
+                or not line_id[
+                    1:
+                ].isdigit()
+            ):
+
+                raise ValueError(
+                    (
+                        "Invalid OCR line_id: "
+                        f"{line_id}. "
+                        "Expected format "
+                        "L0, L1, L2, ..."
+                    )
+                )
+
+
+            # ==============================================
+            # DUPLICATE LINE ID PROTECTION
+            # ==============================================
+
+            if (
+                line_id
+                in seen_line_ids
+            ):
+
+                raise ValueError(
+                    (
+                        "Duplicate OCR line_id "
+                        f"detected: {line_id}."
+                    )
+                )
+
+
+            seen_line_ids.add(
+                line_id
+            )
+
+
+            # ==============================================
+            # PREPARE LLM EVIDENCE
+            # ==============================================
+            #
+            # OCR confidence is intentionally NOT included.
+            #
+            # Confidence remains a deterministic downstream
+            # calculation based on validated evidence.
+            # ==============================================
+
+            llm_input.append(
+                {
+                    "line_id":
+                        line_id,
+
+                    "text":
+                        line[
+                            "text"
+                        ],
+
+                    "bbox":
+                        line[
+                            "bbox"
+                        ],
+                }
+            )
+
+
+        return llm_input
+
 
     # ======================================================
     # EXTRACT STRUCTURED DOCUMENT DATA
@@ -35,32 +295,26 @@ class ExtractionService:
 
         # ==================================================
         # PREPARE OCR EVIDENCE FOR LLM
+        # PHASE 7C.2
         # ==================================================
 
-        llm_input: list[dict] = []
-
-        for index, line in enumerate(ocr_lines):
-
-            llm_input.append(
-                {
-                    "line_id": f"L{index}",
-                    "text": line["text"],
-                    "bbox": line["bbox"],
-                }
+        llm_input = (
+            self._prepare_llm_input(
+                ocr_lines
             )
+        )
 
-        # IMPORTANT:
-        # OCR confidence is intentionally NOT sent
-        # to the LLM.
-        #
-        # Confidence is calculated separately after
-        # evidence validation.
+
+        # ==================================================
+        # SERIALIZE OCR EVIDENCE
+        # ==========================================================
 
         document_text = json.dumps(
             llm_input,
             indent=2,
             ensure_ascii=False,
         )
+
 
         # ==================================================
         # STRICT EXTRACTION SYSTEM PROMPT
@@ -144,8 +398,81 @@ Example:
 These may be duplicate representations of the same date.
 
 
-7. Preserve licence numbers and ID numbers exactly
-as shown by OCR.
+7. Preserve every non-date text value EXACTLY as shown
+by OCR.
+
+This applies to:
+
+full_name
+licence_number
+id_number
+issuer
+
+Copy the value characters directly from the supporting OCR
+evidence line.
+
+You MAY exclude surrounding label or context words such as:
+
+"ISSUED BY"
+"LICENSE"
+"LICENCE NO"
+"DOB"
+"EXPIRES"
+"NAME"
+
+But the characters you DO return must appear exactly as
+printed, in their original order.
+
+Do NOT reorder, reformat, re-case, expand, abbreviate,
+split, join or otherwise tidy a text value.
+
+Names must be copied verbatim, including the original
+word order and punctuation. Many identity documents print
+names in "SURNAME,GIVENNAME" order. That order is part of
+the evidence and must be preserved.
+
+Example — preserve printed name order:
+
+line_id = "L14"
+text = "SAMPLE,JANE"
+
+Correct:
+
+full_name = "SAMPLE,JANE"
+
+Incorrect:
+
+full_name = "Jane Sample"
+
+Incorrect:
+
+full_name = "JaneSample"
+
+Incorrect:
+
+full_name = "JANE SAMPLE"
+
+
+Example — exclude the label, keep the value verbatim:
+
+line_id = "L15"
+text = "ISSUED BY TX DPS"
+
+Correct:
+
+issuer = "TX DPS"
+
+Incorrect:
+
+issuer = "ISSUED BY TX DPS"
+
+Incorrect:
+
+issuer = "Texas DPS"
+
+
+Dates are the ONLY values that may be reformatted.
+See rule 8.
 
 
 8. Normalize clearly supported dates to YYYY-MM-DD.
@@ -625,6 +952,7 @@ OCR INPUT:
 
         response = None
 
+
         for attempt in range(
             1,
             max_attempts + 1,
@@ -637,33 +965,48 @@ OCR INPUT:
                     .chat
                     .completions
                     .create(
-                        model="openai/gpt-oss-20b",
+                        model=(
+                            "openai/gpt-oss-20b"
+                        ),
 
                         messages=[
                             {
-                                "role": "system",
-                                "content": system_prompt,
+                                "role":
+                                    "system",
+
+                                "content":
+                                    system_prompt,
                             },
                             {
-                                "role": "user",
-                                "content": user_prompt,
+                                "role":
+                                    "user",
+
+                                "content":
+                                    user_prompt,
                             },
                         ],
 
                         # This task is constrained
                         # OCR-to-schema extraction.
-                        reasoning_effort="low",
+                        reasoning_effort=(
+                            "low"
+                        ),
 
                         # We do not need model reasoning
                         # content in the response.
-                        include_reasoning=False,
+                        include_reasoning=(
+                            False
+                        ),
 
                         # Gives enough room for a valid
                         # structured JSON response.
-                        max_completion_tokens=2048,
+                        max_completion_tokens=(
+                            2048
+                        ),
 
                         response_format={
-                            "type": "json_schema",
+                            "type":
+                                "json_schema",
 
                             "json_schema": {
                                 "name":
@@ -681,12 +1024,17 @@ OCR INPUT:
                     )
                 )
 
+
                 # Successful structured response.
                 break
 
+
             except groq.BadRequestError as exc:
 
-                error_text = str(exc)
+                error_text = str(
+                    exc
+                )
+
 
                 # ------------------------------------------
                 # RETRY ONLY STRUCTURED-OUTPUT GENERATION
@@ -704,25 +1052,58 @@ OCR INPUT:
                     in error_text
                 )
 
+
                 # Genuine unrelated API errors should
                 # immediately propagate.
                 if not is_json_generation_error:
+
                     raise
 
+
                 # Final failed attempt.
-                if attempt == max_attempts:
+                if (
+                    attempt
+                    == max_attempts
+                ):
+
                     raise RuntimeError(
-                        "Groq failed to generate a valid "
-                        "structured document after "
-                        f"{max_attempts} attempts."
+                        (
+                            "Groq failed to generate "
+                            "a valid structured document "
+                            "after "
+                            f"{max_attempts} attempts."
+                        )
                     ) from exc
 
-                print(
-                    f"[RETRY] Groq structured output "
-                    f"generation failed "
-                    f"(attempt {attempt}/{max_attempts}). "
-                    f"Retrying..."
+
+                log_event(
+                    logger,
+
+                    event=(
+                        "llm_structured"
+                        "_extraction_retry"
+                    ),
+
+                    message=(
+                        "Groq structured output "
+                        "generation failed "
+                        f"(attempt "
+                        f"{attempt}/"
+                        f"{max_attempts}). "
+                        "Retrying."
+                    ),
+
+                    level=(
+                        logging.WARNING
+                    ),
+
+                    error_type=(
+                        type(
+                            exc
+                        ).__name__
+                    ),
                 )
+
 
         # ==================================================
         # SAFETY CHECK
@@ -735,16 +1116,20 @@ OCR INPUT:
                 "a structured response."
             )
 
+
         # ==================================================
         # READ STRUCTURED RESPONSE
         # ==================================================
 
         content = (
             response
-            .choices[0]
+            .choices[
+                0
+            ]
             .message
             .content
         )
+
 
         if not content:
 
@@ -752,6 +1137,7 @@ OCR INPUT:
                 "Groq returned empty "
                 "structured output."
             )
+
 
         # ==================================================
         # PARSE JSON
@@ -763,11 +1149,13 @@ OCR INPUT:
                 content
             )
 
+
         except json.JSONDecodeError as exc:
 
             raise ValueError(
                 "Groq returned invalid JSON."
             ) from exc
+
 
         # ==================================================
         # FINAL DETERMINISTIC PYDANTIC VALIDATION

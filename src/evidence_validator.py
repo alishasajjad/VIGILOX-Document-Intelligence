@@ -1,8 +1,9 @@
 import re
 import unicodedata
+
 from datetime import (
-    datetime,
     date,
+    datetime,
 )
 
 from src.schemas import (
@@ -68,6 +69,7 @@ class EvidenceValidator:
             text,
         )
 
+
         text = "".join(
             char
             for char in text
@@ -76,7 +78,9 @@ class EvidenceValidator:
             )
         )
 
+
         text = text.upper()
+
 
         text = "".join(
             char
@@ -84,39 +88,176 @@ class EvidenceValidator:
             if char.isalnum()
         )
 
+
         return text
 
 
     # ======================================================
-    # SOURCE LINE ID -> OCR INDEX
+    # BUILD OCR EVIDENCE LOOKUP
+    # PHASE 7C.2
     # ======================================================
 
-    def _line_id_to_index(
+    def _build_ocr_lookup(
         self,
-        line_id: str,
-    ) -> int | None:
+        ocr_lines: list[dict],
+    ) -> dict[str, dict]:
 
-        if not isinstance(
-            line_id,
-            str,
+        # ==================================================
+        # EXPLICIT PROVENANCE LOOKUP
+        # ==================================================
+        #
+        # New OCR records contain:
+        #
+        # {
+        #     "line_id": "L15",
+        #     "text": "ISSUED BY TX DPS",
+        #     "confidence": 0.99,
+        #     "bbox": [...]
+        # }
+        #
+        # EvidenceValidator now resolves evidence directly
+        # through this explicit ID instead of converting:
+        #
+        # L15 -> integer 15 -> ocr_lines[15]
+        #
+        # That removes positional coupling from the
+        # provenance chain.
+        # ==================================================
+
+        lookup: dict[str, dict] = {}
+
+
+        for (
+            index,
+            line,
+        ) in enumerate(
+            ocr_lines
         ):
-            return None
 
-        if not re.fullmatch(
-            r"L\d+",
-            line_id,
-        ):
-            return None
+            # ==============================================
+            # OCR RECORD STRUCTURE
+            # ==============================================
 
-        try:
+            if not isinstance(
+                line,
+                dict,
+            ):
 
-            return int(
-                line_id[1:]
+                raise ValueError(
+                    (
+                        "Invalid OCR line at "
+                        f"index {index}. "
+                        "Expected a dictionary."
+                    )
+                )
+
+
+            if (
+                "text"
+                not in line
+            ):
+
+                raise ValueError(
+                    (
+                        "OCR line at "
+                        f"index {index} "
+                        "is missing text."
+                    )
+                )
+
+
+            # ==============================================
+            # EXPLICIT LINE ID
+            # ==============================================
+
+            line_id = (
+                line.get(
+                    "line_id"
+                )
             )
 
-        except ValueError:
 
-            return None
+            # ==============================================
+            # LEGACY BACKWARD COMPATIBILITY
+            # ==============================================
+            #
+            # Older persisted documents and older test
+            # fixtures may not contain line_id.
+            #
+            # They retain the historical zero-based
+            # positional convention:
+            #
+            # index 0 -> L0
+            # index 1 -> L1
+            #
+            # New OCRService records always contain their
+            # explicit line_id.
+            # ==============================================
+
+            if (
+                line_id is None
+                or str(
+                    line_id
+                ).strip()
+                == ""
+            ):
+
+                line_id = (
+                    f"L{index}"
+                )
+
+
+            line_id = (
+                str(
+                    line_id
+                )
+                .strip()
+            )
+
+
+            # ==============================================
+            # LINE ID FORMAT VALIDATION
+            # ==============================================
+
+            if not re.fullmatch(
+                r"L\d+",
+                line_id,
+            ):
+
+                raise ValueError(
+                    (
+                        "Invalid OCR line_id "
+                        f"at index {index}: "
+                        f"{line_id}. "
+                        "Expected format "
+                        "L0, L1, L2, ..."
+                    )
+                )
+
+
+            # ==============================================
+            # DUPLICATE LINE ID PROTECTION
+            # ==============================================
+
+            if (
+                line_id
+                in lookup
+            ):
+
+                raise ValueError(
+                    (
+                        "Duplicate OCR line_id "
+                        f"detected: {line_id}."
+                    )
+                )
+
+
+            lookup[
+                line_id
+            ] = line
+
+
+        return lookup
 
 
     # ======================================================
@@ -154,6 +295,7 @@ class EvidenceValidator:
                 text,
                 flags=re.IGNORECASE,
             )
+
 
             candidates.extend(
                 matches
@@ -199,21 +341,28 @@ class EvidenceValidator:
         ]
 
 
-        value = value.strip()
+        value = (
+            value.strip()
+        )
 
 
         for date_format in formats:
 
             try:
 
-                parsed = datetime.strptime(
-                    value,
-                    date_format,
-                ).date()
+                parsed = (
+                    datetime.strptime(
+                        value,
+                        date_format,
+                    )
+                    .date()
+                )
+
 
                 possible.add(
                     parsed
                 )
+
 
             except ValueError:
 
@@ -241,6 +390,7 @@ class EvidenceValidator:
 
 
         if not target_dates:
+
             return False
 
 
@@ -299,6 +449,7 @@ class EvidenceValidator:
 
 
         if not normalized_value:
+
             return False
 
 
@@ -333,14 +484,20 @@ class EvidenceValidator:
             return True
 
 
-        combined = " ".join(
-            evidence_texts
-        ).upper()
+        combined = (
+            " ".join(
+                evidence_texts
+            )
+            .upper()
+        )
 
 
         return any(
-            label in combined
-            for label in expected_labels
+            label
+            in combined
+
+            for label
+            in expected_labels
         )
 
 
@@ -357,21 +514,26 @@ class EvidenceValidator:
         flags: list[str] = []
 
 
-        # --------------------------------------------------
-        # Valid OCR IDs
-        # --------------------------------------------------
+        # ==================================================
+        # BUILD EXPLICIT OCR EVIDENCE LOOKUP
+        # PHASE 7C.2
+        # ==================================================
 
-        valid_line_ids = {
-            f"L{index}"
-            for index in range(
-                len(ocr_lines)
+        ocr_lookup = (
+            self._build_ocr_lookup(
+                ocr_lines
             )
-        }
+        )
 
 
-        # --------------------------------------------------
-        # Fields to validate
-        # --------------------------------------------------
+        valid_line_ids = set(
+            ocr_lookup.keys()
+        )
+
+
+        # ==================================================
+        # FIELDS TO VALIDATE
+        # ==================================================
 
         fields = {
 
@@ -398,13 +560,14 @@ class EvidenceValidator:
         }
 
 
-        # --------------------------------------------------
-        # Validate each field
-        # --------------------------------------------------
+        # ==================================================
+        # VALIDATE EACH FIELD
+        # ==================================================
 
-        for field_name, field in (
-            fields.items()
-        ):
+        for (
+            field_name,
+            field,
+        ) in fields.items():
 
 
             # ==============================================
@@ -423,9 +586,12 @@ class EvidenceValidator:
             if not field.source_line_ids:
 
                 flags.append(
-                    f"{field_name.upper()}"
-                    "_NO_EVIDENCE"
+                    (
+                        f"{field_name.upper()}"
+                        "_NO_EVIDENCE"
+                    )
                 )
+
 
                 continue
 
@@ -441,8 +607,10 @@ class EvidenceValidator:
                 for line_id
                 in field.source_line_ids
 
-                if line_id
-                not in valid_line_ids
+                if (
+                    line_id
+                    not in valid_line_ids
+                )
             ]
 
 
@@ -451,10 +619,13 @@ class EvidenceValidator:
                 for line_id in invalid_ids:
 
                     flags.append(
-                        f"{field_name.upper()}"
-                        "_INVALID_SOURCE_LINE_ID:"
-                        f"{line_id}"
+                        (
+                            f"{field_name.upper()}"
+                            "_INVALID_SOURCE_LINE_ID:"
+                            f"{line_id}"
+                        )
                     )
+
 
                 # Semantic validation cannot continue
                 # if source references are invalid.
@@ -462,7 +633,8 @@ class EvidenceValidator:
 
 
             # ==============================================
-            # GATHER OCR EVIDENCE
+            # GATHER OCR EVIDENCE BY EXPLICIT LINE ID
+            # PHASE 7C.2
             # ==============================================
 
             evidence_texts: list[str] = []
@@ -472,52 +644,68 @@ class EvidenceValidator:
                 field.source_line_ids
             ):
 
-                line_index = (
-                    self._line_id_to_index(
+                ocr_line = (
+                    ocr_lookup.get(
                         line_id
                     )
                 )
 
 
-                if line_index is None:
+                # This should normally be impossible because
+                # invalid IDs were already checked above.
+                # Keep the guard for defensive integrity.
+                if ocr_line is None:
 
                     flags.append(
-                        f"{field_name.upper()}"
-                        "_INVALID_SOURCE_LINE_ID:"
-                        f"{line_id}"
+                        (
+                            f"{field_name.upper()}"
+                            "_INVALID_SOURCE_LINE_ID:"
+                            f"{line_id}"
+                        )
                     )
+
 
                     continue
 
 
-                if not (
-                    0
-                    <= line_index
-                    < len(ocr_lines)
+                evidence_text = (
+                    ocr_line.get(
+                        "text"
+                    )
+                )
+
+
+                if not isinstance(
+                    evidence_text,
+                    str,
                 ):
 
                     flags.append(
-                        f"{field_name.upper()}"
-                        "_INVALID_SOURCE_LINE_ID:"
-                        f"{line_id}"
+                        (
+                            f"{field_name.upper()}"
+                            "_INVALID_EVIDENCE_TEXT:"
+                            f"{line_id}"
+                        )
                     )
+
 
                     continue
 
 
                 evidence_texts.append(
-                    ocr_lines[
-                        line_index
-                    ]["text"]
+                    evidence_text
                 )
 
 
             if not evidence_texts:
 
                 flags.append(
-                    f"{field_name.upper()}"
-                    "_NO_VALID_EVIDENCE"
+                    (
+                        f"{field_name.upper()}"
+                        "_NO_VALID_EVIDENCE"
+                    )
                 )
+
 
                 continue
 
@@ -526,7 +714,10 @@ class EvidenceValidator:
             # V2 — VALUE SUPPORT
             # ==============================================
 
-            if field_name in self.DATE_FIELDS:
+            if (
+                field_name
+                in self.DATE_FIELDS
+            ):
 
                 value_supported = (
                     self._date_is_supported(
@@ -534,6 +725,7 @@ class EvidenceValidator:
                         evidence_texts,
                     )
                 )
+
 
             else:
 
@@ -548,9 +740,12 @@ class EvidenceValidator:
             if not value_supported:
 
                 flags.append(
-                    f"{field_name.upper()}"
-                    "_EVIDENCE_MISMATCH"
+                    (
+                        f"{field_name.upper()}"
+                        "_EVIDENCE_MISMATCH"
+                    )
                 )
+
 
                 continue
 
@@ -570,8 +765,10 @@ class EvidenceValidator:
             if not context_supported:
 
                 flags.append(
-                    f"{field_name.upper()}"
-                    "_CONTEXT_MISSING"
+                    (
+                        f"{field_name.upper()}"
+                        "_CONTEXT_MISSING"
+                    )
                 )
 
 
