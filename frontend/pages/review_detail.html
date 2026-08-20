@@ -16,13 +16,43 @@
 
     <link
         rel="stylesheet"
+        href="/review/static/css/tokens.css"
+    >
+
+    <link
+        rel="stylesheet"
+        href="/review/static/css/base.css"
+    >
+
+    <link
+        rel="stylesheet"
+        href="/review/static/css/layout.css"
+    >
+
+    <link
+        rel="stylesheet"
+        href="/review/static/css/components.css"
+    >
+
+    <link
+        rel="stylesheet"
         href="/review/static/dashboard.css"
+    >
+
+    <link
+        rel="stylesheet"
+        href="/review/static/css/responsive.css"
     >
 
 </head>
 
 
 <body>
+
+    <a class="skip-link" href="#main-content">
+        Skip to main content
+    </a>
+
 
     <div class="app-shell">
 
@@ -34,7 +64,7 @@
 
             <div class="brand">
 
-                <div class="brand-mark">
+                <div class="brand-mark" aria-hidden="true">
                     V
                 </div>
 
@@ -53,13 +83,50 @@
             </div>
 
 
-            <nav class="navigation">
+            <nav
+                class="navigation"
+                aria-label="Primary"
+            >
 
+                <p class="nav-section-label">
+                    Workspace
+                </p>
+
+                <span
+                    class="nav-item is-pending"
+                    aria-disabled="true"
+                >
+                    <span class="nav-item-label">Dashboard</span>
+                    <span class="nav-pending-tag">
+                        Soon
+                    </span>
+                </span>
+                <span
+                    class="nav-item is-pending"
+                    aria-disabled="true"
+                >
+                    <span class="nav-item-label">Upload Document</span>
+                    <span class="nav-pending-tag">
+                        Soon
+                    </span>
+                </span>
+                <span
+                    class="nav-item is-pending"
+                    aria-disabled="true"
+                >
+                    <span class="nav-item-label">Documents</span>
+                    <span class="nav-pending-tag">
+                        Soon
+                    </span>
+                </span>
                 <a
                     href="/review"
                     class="nav-item"
+                    data-nav-match="prefix"
+                    data-nav-prefix="/review"
+                    aria-current="page"
                 >
-                    ← Review Queue
+                    <span class="nav-item-label">Review Queue</span>
                 </a>
 
             </nav>
@@ -67,15 +134,69 @@
 
             <div class="sidebar-footer">
 
+                <!-- ===================================== -->
+                <!-- REVIEWER IDENTITY                     -->
+                <!-- ===================================== -->
+                <!--
+                    Resolved by the server from
+                    GET /api/v1/reviewer/me.
+
+                    Read-only by design. There is no input
+                    here and the browser cannot choose or
+                    influence who the reviewer is.
+                -->
+
+                <div class="shell-reviewer">
+
+                    <div
+                        id="shell-reviewer-avatar"
+                        class="shell-reviewer-avatar"
+                        aria-hidden="true"
+                    >
+                        &hellip;
+                    </div>
+
+                    <div class="shell-reviewer-body">
+
+                        <div
+                            id="shell-reviewer-name"
+                            class="shell-reviewer-name"
+                        >
+                            Loading reviewer
+                        </div>
+
+                        <div class="shell-reviewer-meta">
+
+                            <span
+                                id="shell-reviewer-role"
+                                class="shell-reviewer-role"
+                            ></span>
+
+                            <span
+                                id="shell-reviewer-access"
+                                class="shell-reviewer-access"
+                            ></span>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
                 <div class="system-status">
 
                     <span
                         id="status-indicator"
                         class="status-dot"
+                        aria-hidden="true"
                     ></span>
 
-                    <span id="status-text">
-                        Checking API...
+                    <span
+                        id="status-text"
+                        role="status"
+                    >
+                        Checking API
                     </span>
 
                 </div>
@@ -89,7 +210,10 @@
         <!-- MAIN -->
         <!-- ============================================= -->
 
-        <main class="main-content">
+        <main
+            id="main-content"
+            class="main-content"
+        >
 
             <!-- ========================================= -->
             <!-- HEADER -->
@@ -966,6 +1090,14 @@
 
     </div>
 
+
+    <script
+        src="/review/static/js/api.js"
+    ></script>
+
+    <script
+        src="/review/static/js/common.js"
+    ></script>
 
     <script
         src="/review/static/review_detail.js"

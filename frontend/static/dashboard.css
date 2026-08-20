@@ -1,277 +1,29 @@
-* {
-    box-sizing: border-box;
-}
-
-
-:root {
-    --background: #f5f7fa;
-    --surface: #ffffff;
-
-    --sidebar: #111827;
-    --sidebar-soft: #1f2937;
-
-    --text: #172033;
-    --text-soft: #667085;
-
-    --border: #e5e7eb;
-
-    --primary: #2563eb;
-    --primary-soft: #eff6ff;
-
-    --success: #16a34a;
-    --success-soft: #f0fdf4;
-
-    --danger: #dc2626;
-    --danger-soft: #fef2f2;
-
-    --warning: #d97706;
-    --warning-soft: #fff7ed;
-
-    --high: #dc2626;
-    --high-soft: #fef2f2;
-
-    --medium: #d97706;
-    --medium-soft: #fff7ed;
-
-    --low: #2563eb;
-    --low-soft: #eff6ff;
-
-    --radius: 14px;
-}
-
-
-body {
-    margin: 0;
-
-    font-family:
-        Inter,
-        -apple-system,
-        BlinkMacSystemFont,
-        "Segoe UI",
-        sans-serif;
-
-    color: var(--text);
-    background: var(--background);
-}
-
-
-button,
-input,
-select,
-textarea {
-    font: inherit;
-}
-
-
-/* ===================================================== */
-/* APP */
-/* ===================================================== */
-
-.app-shell {
-    min-height: 100vh;
-    display: flex;
-}
-
-
-/* ===================================================== */
-/* SIDEBAR */
-/* ===================================================== */
-
-.sidebar {
-    width: 260px;
-    min-height: 100vh;
-
-    position: fixed;
-    top: 0;
-    left: 0;
-
-    display: flex;
-    flex-direction: column;
-
-    padding: 28px 20px;
-
-    color: white;
-    background: var(--sidebar);
-}
-
-
-.brand {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-
-.brand-mark {
-    width: 42px;
-    height: 42px;
-
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    flex-shrink: 0;
-
-    border-radius: 11px;
-
-    font-size: 20px;
-    font-weight: 800;
-
-    background: var(--primary);
-}
-
-
-.brand-name {
-    font-weight: 800;
-    letter-spacing: 0.04em;
-}
-
-
-.brand-subtitle {
-    margin-top: 2px;
-
-    font-size: 12px;
-    color: #9ca3af;
-}
-
-
-/* ===================================================== */
-/* NAVIGATION */
-/* ===================================================== */
-
-.navigation {
-    margin-top: 42px;
-}
-
-
-.nav-item {
-    display: block;
-
-    padding: 12px 14px;
-
-    border-radius: 9px;
-
-    text-decoration: none;
-    color: #d1d5db;
-
-    transition:
-        background 0.2s,
-        color 0.2s;
-}
-
-
-.nav-item:hover {
-    color: white;
-    background: var(--sidebar-soft);
-}
-
-
-.nav-item.active {
-    color: white;
-    background: var(--sidebar-soft);
-}
-
-
-/* ===================================================== */
-/* SIDEBAR FOOTER */
-/* ===================================================== */
-
-.sidebar-footer {
-    margin-top: auto;
-
-    padding-top: 20px;
-
-    border-top: 1px solid #374151;
-}
-
-
-.system-status {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-
-    font-size: 13px;
-    color: #d1d5db;
-}
-
-
-.status-dot {
-    width: 9px;
-    height: 9px;
-
-    border-radius: 50%;
-
-    background: #6b7280;
-}
-
-
-.status-dot.online {
-    background: #22c55e;
-}
-
-
-.status-dot.offline {
-    background: #ef4444;
-}
-
-
-/* ===================================================== */
-/* MAIN */
-/* ===================================================== */
-
-.main-content {
-    width: calc(100% - 260px);
-
-    margin-left: 260px;
-
-    padding: 40px;
-}
-
-
-/* ===================================================== */
-/* HEADER */
-/* ===================================================== */
-
-.page-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 30px;
-
-    margin-bottom: 30px;
-}
-
-
-.eyebrow {
-    margin: 0 0 8px;
-
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-
-    color: var(--primary);
-}
-
-
-.page-header h1 {
-    margin: 0;
-
-    font-size: 32px;
-
-    letter-spacing: -0.03em;
-}
-
-
-.page-description {
-    max-width: 620px;
-
-    margin: 10px 0 0;
-
-    color: var(--text-soft);
-
-    line-height: 1.6;
-}
-
+/* ==========================================================
+   VIGILOX PAGE STYLES (LEGACY)
+   ==========================================================
+   Page-level styling for the review queue and document
+   detail screens.
+
+   PHASE 8.4
+   ----------------------------------------------------------
+   The reset, the :root token block and the application shell
+   were removed from the top of this file. They are now owned
+   by, in load order:
+
+       css/tokens.css        design tokens
+       css/base.css          reset, typography, focus
+       css/layout.css        application shell
+       css/components.css    reusable components
+       css/responsive.css    breakpoints
+
+   All 122 var() references below still resolve, because
+   every original token name is preserved in tokens.css.
+
+   This file is loaded AFTER the design system so existing
+   page rules keep winning during the incremental migration.
+   Its remaining rules are progressively replaced by
+   components.css as each screen is rebuilt in 8.6 onward.
+   ========================================================== */
 
 /* ===================================================== */
 /* BUTTONS */
@@ -736,24 +488,23 @@ textarea {
 
 @media (max-width: 760px) {
 
-    .sidebar {
-        display: none;
-    }
+    /* ==================================================
+       PHASE 8.4
+       ==================================================
+       The shell rules that used to live here were removed:
 
+           .sidebar     { display: none }
+           .main-content{ width / margin / padding }
+           .page-header { flex-direction: column }
 
-    .main-content {
-        width: 100%;
+       They are owned by css/responsive.css now. The old
+       rules actively conflicted with it: hiding the sidebar
+       outright removed all navigation on small screens,
+       whereas the shell now reflows it into a scrollable top
+       bar that stays keyboard reachable.
 
-        margin-left: 0;
-
-        padding: 24px;
-    }
-
-
-    .page-header {
-        flex-direction: column;
-    }
-
+       Only page-specific rules remain below.
+       ================================================== */
 
     .queue-filters {
         width: 100%;

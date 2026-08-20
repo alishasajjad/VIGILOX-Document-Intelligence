@@ -1,0 +1,360 @@
+/* ==========================================================
+   VIGILOX DESIGN TOKENS
+   PHASE 8.4
+   ==========================================================
+
+   The single source of truth for colour, spacing, typography,
+   elevation and layout.
+
+   MIGRATION NOTE
+   ----------------------------------------------------------
+   Every token that existed in the original dashboard.css
+   :root block is preserved here under its original name.
+   dashboard.css contains 122 var() references and they all
+   still resolve, so extracting this block changed no
+   existing rule.
+
+   New tokens are additive: spacing, a type scale, elevation,
+   layout widths, and explicit state families for confidence,
+   expiry, review status and anomaly severity.
+
+   VISUAL DIRECTION
+   ----------------------------------------------------------
+   Enterprise, restrained, data-dense. Neutral greys carry the
+   interface; colour is reserved for state and never used
+   decoratively. Radii are small, shadows are barely there.
+   ========================================================== */
+
+:root {
+
+    /* ======================================================
+       SURFACES
+       ====================================================== */
+
+    --background: #f5f7fa;
+    --surface: #ffffff;
+    --surface-muted: #f9fafb;
+    --surface-sunken: #f3f4f6;
+    --surface-inverse: #111827;
+
+    --sidebar: #111827;
+    --sidebar-soft: #1f2937;
+    --sidebar-hover: #263449;
+    --sidebar-border: #1f2937;
+    --sidebar-text: #cbd5e1;
+    --sidebar-text-strong: #f8fafc;
+    --sidebar-text-muted: #7c8ba1;
+
+
+    /* ======================================================
+       TEXT
+       ====================================================== */
+
+    --text: #172033;
+    --text-soft: #667085;
+    --text-subtle: #8a94a6;
+    --text-inverse: #f8fafc;
+
+
+    /* ======================================================
+       BORDERS
+       ====================================================== */
+
+    --border: #e5e7eb;
+    --border-strong: #d1d5db;
+    --border-subtle: #eef1f5;
+
+
+    /* ======================================================
+       BRAND
+       ====================================================== */
+
+    --primary: #2563eb;
+    --primary-soft: #eff6ff;
+    --primary-strong: #1d4ed8;
+    --primary-border: #bfdbfe;
+
+
+    /* ======================================================
+       SEMANTIC STATE
+       ====================================================== */
+
+    --success: #16a34a;
+    --success-soft: #f0fdf4;
+    --success-border: #bbf7d0;
+
+    --danger: #dc2626;
+    --danger-soft: #fef2f2;
+    --danger-border: #fecaca;
+
+    --warning: #d97706;
+    --warning-soft: #fff7ed;
+    --warning-border: #fed7aa;
+
+    --info: #0891b2;
+    --info-soft: #ecfeff;
+    --info-border: #a5f3fc;
+
+    --neutral: #4b5563;
+    --neutral-soft: #f3f4f6;
+    --neutral-border: #e5e7eb;
+
+
+    /* ======================================================
+       REVIEW PRIORITY
+       ------------------------------------------------------
+       Original names preserved. The backend emits HIGH /
+       MEDIUM / LOW.
+       ====================================================== */
+
+    --high: #dc2626;
+    --high-soft: #fef2f2;
+    --high-border: #fecaca;
+
+    --medium: #d97706;
+    --medium-soft: #fff7ed;
+    --medium-border: #fed7aa;
+
+    --low: #2563eb;
+    --low-soft: #eff6ff;
+    --low-border: #bfdbfe;
+
+
+    /* ======================================================
+       FINAL RECORD / REVIEW STATE
+       ------------------------------------------------------
+       Mirrors the backend final_status values exactly:
+       AUTO_ACCEPTED, PENDING_REVIEW, APPROVED, CORRECTED,
+       REJECTED.
+       ====================================================== */
+
+    --state-auto-accepted: #16a34a;
+    --state-auto-accepted-soft: #f0fdf4;
+
+    --state-pending: #d97706;
+    --state-pending-soft: #fff7ed;
+
+    --state-approved: #16a34a;
+    --state-approved-soft: #f0fdf4;
+
+    --state-corrected: #2563eb;
+    --state-corrected-soft: #eff6ff;
+
+    --state-rejected: #dc2626;
+    --state-rejected-soft: #fef2f2;
+
+
+    /* ======================================================
+       CONFIDENCE
+       ------------------------------------------------------
+       Presentation bands only. The backend supplies the
+       numeric confidence; these thresholds live in
+       common.js so JS and CSS cannot drift.
+       ====================================================== */
+
+    --confidence-high: #16a34a;
+    --confidence-high-soft: #f0fdf4;
+
+    --confidence-medium: #d97706;
+    --confidence-medium-soft: #fff7ed;
+
+    --confidence-low: #dc2626;
+    --confidence-low-soft: #fef2f2;
+
+    --confidence-unknown: #8a94a6;
+    --confidence-unknown-soft: #f3f4f6;
+
+    --confidence-track: #eef1f5;
+
+
+    /* ======================================================
+       EXPIRY
+       ------------------------------------------------------
+       Maps to date_validation.expiry.status: EXPIRED,
+       EXPIRING_SOON, VALID, plus an UNKNOWN fallback.
+       ====================================================== */
+
+    --expiry-expired: #dc2626;
+    --expiry-expired-soft: #fef2f2;
+
+    --expiry-soon: #d97706;
+    --expiry-soon-soft: #fff7ed;
+
+    --expiry-valid: #16a34a;
+    --expiry-valid-soft: #f0fdf4;
+
+    --expiry-unknown: #8a94a6;
+    --expiry-unknown-soft: #f3f4f6;
+
+
+    /* ======================================================
+       ANOMALY SEVERITY
+       ------------------------------------------------------
+       The backend currently emits ERROR and WARNING
+       severities. CRITICAL and INFO are declared for
+       forward compatibility and are not invented in the UI
+       unless the backend reports them.
+       ====================================================== */
+
+    --severity-critical: #991b1b;
+    --severity-critical-soft: #fef2f2;
+
+    --severity-error: #dc2626;
+    --severity-error-soft: #fef2f2;
+
+    --severity-warning: #d97706;
+    --severity-warning-soft: #fff7ed;
+
+    --severity-info: #0891b2;
+    --severity-info-soft: #ecfeff;
+
+
+    /* ======================================================
+       PROVENANCE
+       ------------------------------------------------------
+       MACHINE vs HUMAN_CORRECTION must be visually
+       unmistakable. This is a correctness requirement, not
+       decoration.
+       ====================================================== */
+
+    --provenance-machine: #4b5563;
+    --provenance-machine-soft: #f3f4f6;
+
+    --provenance-human: #7c3aed;
+    --provenance-human-soft: #f5f3ff;
+    --provenance-human-border: #ddd6fe;
+
+
+    /* ======================================================
+       SPACING  (4px base)
+       ====================================================== */
+
+    --space-0: 0;
+    --space-1: 0.25rem;
+    --space-2: 0.5rem;
+    --space-3: 0.75rem;
+    --space-4: 1rem;
+    --space-5: 1.25rem;
+    --space-6: 1.5rem;
+    --space-8: 2rem;
+    --space-10: 2.5rem;
+    --space-12: 3rem;
+    --space-16: 4rem;
+
+
+    /* ======================================================
+       TYPOGRAPHY
+       ------------------------------------------------------
+       System font stacks only. No external font dependency,
+       so there is no network request and no layout shift.
+       ====================================================== */
+
+    --font-sans:
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        Roboto,
+        "Helvetica Neue",
+        Arial,
+        sans-serif;
+
+    --font-mono:
+        "SFMono-Regular",
+        Consolas,
+        "Liberation Mono",
+        Menlo,
+        monospace;
+
+    --text-xs: 0.6875rem;   /* 11px  metadata, table meta   */
+    --text-sm: 0.8125rem;   /* 13px  helper, status text    */
+    --text-base: 0.875rem;  /* 14px  body, table content    */
+    --text-md: 0.9375rem;   /* 15px  emphasised body        */
+    --text-lg: 1.0625rem;   /* 17px  card title             */
+    --text-xl: 1.25rem;     /* 20px  section heading        */
+    --text-2xl: 1.5rem;     /* 24px  page title             */
+    --text-3xl: 1.875rem;   /* 30px  stat figure            */
+
+    --weight-normal: 400;
+    --weight-medium: 500;
+    --weight-semibold: 600;
+    --weight-bold: 700;
+
+    --leading-tight: 1.25;
+    --leading-snug: 1.4;
+    --leading-normal: 1.55;
+    --leading-relaxed: 1.7;
+
+    --tracking-wide: 0.04em;
+    --tracking-wider: 0.08em;
+
+
+    /* ======================================================
+       RADIUS
+       ------------------------------------------------------
+       Deliberately restrained. The original single
+       --radius: 14px read as consumer software rather than
+       an enterprise tool, so it is tightened here and kept
+       as the shared default.
+       ====================================================== */
+
+    --radius-sm: 3px;
+    --radius: 6px;
+    --radius-md: 8px;
+    --radius-lg: 10px;
+    --radius-pill: 999px;
+
+
+    /* ======================================================
+       ELEVATION
+       ------------------------------------------------------
+       Two levels, both subtle. Depth comes from borders and
+       surface contrast, not from shadow.
+       ====================================================== */
+
+    --shadow-none: none;
+    --shadow-sm:
+        0 1px 2px rgba(16, 24, 40, 0.04);
+    --shadow-md:
+        0 2px 6px rgba(16, 24, 40, 0.07);
+    --shadow-overlay:
+        0 12px 32px rgba(16, 24, 40, 0.16);
+
+
+    /* ======================================================
+       FOCUS
+       ------------------------------------------------------
+       One visible focus treatment used everywhere, so
+       keyboard users get a consistent target.
+       ====================================================== */
+
+    --focus-ring: 0 0 0 3px rgba(37, 99, 235, 0.35);
+    --focus-ring-danger: 0 0 0 3px rgba(220, 38, 38, 0.30);
+    --focus-outline: 2px solid var(--primary);
+
+
+    /* ======================================================
+       LAYOUT
+       ====================================================== */
+
+    --sidebar-width: 248px;
+    --sidebar-width-compact: 72px;
+    --content-max: 1520px;
+    --content-narrow: 880px;
+    --header-height: 56px;
+
+
+    /* ======================================================
+       MOTION
+       ------------------------------------------------------
+       Short and functional. Reduced-motion is honoured in
+       base.css.
+       ====================================================== */
+
+    --transition-fast: 100ms ease;
+    --transition: 150ms ease;
+
+    --z-sticky: 20;
+    --z-overlay: 60;
+    --z-dialog: 70;
+    --z-toast: 80;
+}

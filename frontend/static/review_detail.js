@@ -624,68 +624,21 @@ function getDocumentId() {
 // HEALTH
 // ==========================================================
 
-async function checkApiHealth() {
-
-    try {
-
-        const response =
-            await fetch(
-                "/health"
-            );
-
-
-        if (
-            !response.ok
-        ) {
-
-            throw new Error(
-                "Health check failed."
-            );
-
-        }
-
-
-        statusIndicator
-            .classList
-            .remove(
-                "offline"
-            );
-
-
-        statusIndicator
-            .classList
-            .add(
-                "online"
-            );
-
-
-        statusText.textContent =
-            "API Online";
-
-    }
-
-    catch {
-
-        statusIndicator
-            .classList
-            .remove(
-                "online"
-            );
-
-
-        statusIndicator
-            .classList
-            .add(
-                "offline"
-            );
-
-
-        statusText.textContent =
-            "API Offline";
-
-    }
-
-}
+// ==========================================================
+// APPLICATION SHELL
+// ==========================================================
+//
+// PHASE 8.5
+//
+// The local API health check was removed. Navigation state
+// and the liveness indicator come from
+// VigiloxUI.initShellChrome().
+//
+// The shell reviewer is populated by renderReviewerIdentity
+// below via VigiloxUI.applyShellReviewer, reusing the
+// identity this page already loads. That deliberately avoids
+// a second GET /api/v1/reviewer/me.
+// ==========================================================
 
 
 // ==========================================================
@@ -694,6 +647,24 @@ async function checkApiHealth() {
 // ==========================================================
 
 function renderReviewerIdentity() {
+
+    // ======================================================
+    // SHELL SYNC
+    // PHASE 8.5
+    // ======================================================
+    //
+    // Reuses the identity already fetched by
+    // loadReviewerIdentity(), so the sidebar shows the
+    // reviewer without a second request.
+    //
+    // Identity remains server-resolved. This only displays
+    // what the server returned.
+    // ======================================================
+
+    VigiloxUI.applyShellReviewer(
+        loadedReviewerIdentity
+    );
+
 
     authenticatedReviewerLoading.hidden =
         true;
@@ -3991,7 +3962,7 @@ document.addEventListener(
     "DOMContentLoaded",
     async () => {
 
-        await checkApiHealth();
+        VigiloxUI.initShellChrome();
 
         await loadDocument();
 

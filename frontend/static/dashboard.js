@@ -120,97 +120,20 @@ function escapeHtml(value) {
 
 
 // ==========================================================
-// API HEALTH CHECK
+// APPLICATION SHELL
 // ==========================================================
-
-async function checkApiHealth() {
-
-    try {
-
-        const response =
-            await fetch(
-                "/health"
-            );
-
-
-        if (!response.ok) {
-
-            throw new Error(
-                "Health endpoint failed."
-            );
-
-        }
-
-
-        const data =
-            await response.json();
-
-
-        if (
-            data.status
-            !== "ok"
-        ) {
-
-            throw new Error(
-                "API is not healthy."
-            );
-
-        }
-
-
-        statusIndicator
-            .classList
-            .remove(
-                "offline"
-            );
-
-
-        statusIndicator
-            .classList
-            .add(
-                "online"
-            );
-
-
-        statusText.textContent =
-            "API Online";
-
-
-        return true;
-
-    }
-
-    catch (error) {
-
-        console.error(
-            "API health check failed:",
-            error
-        );
-
-
-        statusIndicator
-            .classList
-            .remove(
-                "online"
-            );
-
-
-        statusIndicator
-            .classList
-            .add(
-                "offline"
-            );
-
-
-        statusText.textContent =
-            "API Offline";
-
-
-        return false;
-
-    }
-
-}
+//
+// PHASE 8.5
+//
+// The local API health check that used to live here was
+// removed. Navigation state, the reviewer identity and the
+// liveness indicator are owned by js/common.js, so every
+// page gets the same shell behaviour from one place.
+//
+// Net reduction: /health is still called once on load, and
+// Refresh re-checks liveness only rather than re-resolving
+// the reviewer identity.
+// ==========================================================
 
 
 // ==========================================================
@@ -871,7 +794,7 @@ async function refreshDashboard() {
 
     try {
 
-        await checkApiHealth();
+        VigiloxUI.initSystemStatus();
 
         await loadReviewQueue();
 
@@ -933,7 +856,7 @@ document.addEventListener(
     "DOMContentLoaded",
     async () => {
 
-        await checkApiHealth();
+        VigiloxUI.initShell();
 
         await loadReviewQueue();
 

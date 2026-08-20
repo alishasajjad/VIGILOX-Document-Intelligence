@@ -183,6 +183,10 @@ API_AND_DASHBOARD_REGRESSIONS = (
     "tests/dashboard/test_phase7b_final_dashboard_e2e.py",
     "tests/dashboard/test_phase7c_final_status_dashboard_e2e.py",
     "tests/dashboard/test_phase7c_reviewer_identity_dashboard_e2e.py",
+    (
+        "tests/dashboard/"
+        "test_phase8_shell_and_design_system.py"
+    ),
 )
 
 
