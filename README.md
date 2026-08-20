@@ -119,6 +119,7 @@ VIGILOX-Document-Intelligence/
 │
 ├── evaluation/              images, ground_truth, results, reports, archive
 ├── scripts/                 evaluation, verification, maintenance, development
+│                            (see scripts/README.md for commands)
 ├── docs/                    architecture, phases
 ├── storage/                 runtime managed documents (gitignored)
 ├── samples/                 local scratch only (gitignored, unused)
@@ -227,25 +228,36 @@ Every response carries an `X-Request-ID` header. For errors it matches
 
 ## Tests
 
-Tests are standalone scripts, not pytest. The project root must be
-importable, so either export `PYTHONPATH` or use the `-m` form.
+Tests are standalone scripts, not pytest. Run everything from the
+repository root. **`PYTHONPATH` is not required.**
 
 ```powershell
 $env:PYTHONIOENCODING = "utf-8"
 
-# Full regression gate (recommended)
-.\.venv\Scripts\python.exe .\scripts\verification\run_phase7c7g_regressions.py
+# STANDARD - everything except real PaddleOCR/Groq. Fast and free.
+.\.venv\Scripts\python.exe -m scripts.verification.run_phase7c7g_regressions --exclude-real
 
-# Production invariants: routes, log levels, secret safety
-.\.venv\Scripts\python.exe .\scripts\verification\verify_phase7c7_final.py
+# FULL RELEASE GATE - adds real PaddleOCR + Groq + PostgreSQL
+.\.venv\Scripts\python.exe -m scripts.verification.run_phase7c7g_regressions
 
-# A single test, module form
+# Production invariants: routes, log levels, secret safety. No inference.
+.\.venv\Scripts\python.exe -m scripts.verification.verify_phase7c7_final
+
+# A single test
 .\.venv\Scripts\python.exe -m tests.api.test_phase7c_readiness
-
-# A single test, path form
-$env:PYTHONPATH = "."
-.\.venv\Scripts\python.exe .\tests\api\test_phase7c_readiness.py
 ```
+
+Module form is canonical. Direct file execution also works from the
+repository root:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\verification\verify_phase7c7_final.py
+```
+
+Use `--exclude-real` during development. Real-dependency tests cost
+roughly 6,400 Groq tokens each against a 200,000/day allowance. The
+runner always names the groups it skipped and states whether the full
+gate was actually proven. See [`scripts/README.md`](scripts/README.md).
 
 Every file the suite reads is tracked, so a fresh clone runs the whole
 suite with no private or locally-supplied document. Fixtures come from
@@ -264,9 +276,8 @@ exhausted — that is an external limit, not a code failure.
 ## Evaluation
 
 ```powershell
-$env:PYTHONPATH = "."
-.\.venv\Scripts\python.exe .\scripts\evaluation\evaluation_runner.py
-.\.venv\Scripts\python.exe .\scripts\evaluation\evaluation_metrics.py
+.\.venv\Scripts\python.exe -m scripts.evaluation.evaluation_runner
+.\.venv\Scripts\python.exe -m scripts.evaluation.evaluation_metrics
 ```
 
 Phase 6D benchmark over 63 synthetic documents:

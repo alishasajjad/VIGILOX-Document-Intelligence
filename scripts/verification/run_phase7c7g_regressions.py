@@ -1,3 +1,4 @@
+import argparse
 import os
 import subprocess
 import sys
@@ -463,13 +464,159 @@ def run_test_file(
 # MAIN
 # ==========================================================
 
+REAL_DEPENDENCY_GROUP = (
+    "REAL DEPENDENCY TESTS"
+)
+
+
+# ==========================================================
+# EXECUTION MODES
+# PHASE 8.2
+# ==========================================================
+#
+# Real-dependency tests call PaddleOCR, Groq and PostgreSQL
+# for real. They cost roughly 6,400 Groq tokens each against
+# a 200,000 tokens-per-day allowance, so running the full
+# gate repeatedly during development exhausts the quota and
+# then reports HTTP 429 failures that mean nothing.
+#
+#     default        everything, including real dependencies.
+#                    This is the release gate and it stays
+#                    the default deliberately.
+#
+#     --exclude-real everything except real dependencies.
+#                    Fast, free, no network inference. For
+#                    normal development.
+#
+#     --only-real    just the real-dependency group, for
+#                    confirming provider quota recovery
+#                    without re-running everything.
+#
+# A skipped group is always reported in the summary. The
+# suite never silently narrows its own coverage.
+# ==========================================================
+
+def parse_arguments():
+
+    parser = (
+        argparse.ArgumentParser(
+            description=(
+                "VIGILOX regression suite. "
+                "Runs the full gate including "
+                "real-dependency tests unless "
+                "told otherwise."
+            )
+        )
+    )
+
+
+    mode = (
+        parser.add_mutually_exclusive_group()
+    )
+
+
+    mode.add_argument(
+        "--exclude-real",
+        action="store_true",
+        help=(
+            "Skip the real PaddleOCR / Groq / "
+            "PostgreSQL group. No network "
+            "inference, no Groq tokens."
+        ),
+    )
+
+
+    mode.add_argument(
+        "--only-real",
+        action="store_true",
+        help=(
+            "Run ONLY the real-dependency "
+            "group."
+        ),
+    )
+
+
+    return parser.parse_args()
+
+
+def select_groups(
+    arguments,
+) -> tuple[tuple, str, list]:
+
+    if arguments.only_real:
+
+        selected = [
+            entry
+            for entry in TEST_GROUPS
+            if entry[0] == REAL_DEPENDENCY_GROUP
+        ]
+
+        skipped = [
+            entry
+            for entry in TEST_GROUPS
+            if entry[0] != REAL_DEPENDENCY_GROUP
+        ]
+
+        return (
+            tuple(selected),
+            "ONLY REAL DEPENDENCIES",
+            skipped,
+        )
+
+
+    if arguments.exclude_real:
+
+        selected = [
+            entry
+            for entry in TEST_GROUPS
+            if entry[0] != REAL_DEPENDENCY_GROUP
+        ]
+
+        skipped = [
+            entry
+            for entry in TEST_GROUPS
+            if entry[0] == REAL_DEPENDENCY_GROUP
+        ]
+
+        return (
+            tuple(selected),
+            "STANDARD (no real dependencies)",
+            skipped,
+        )
+
+
+    return (
+        TEST_GROUPS,
+        "FULL RELEASE GATE",
+        [],
+    )
+
+
 def main() -> int:
+
+    arguments = (
+        parse_arguments()
+    )
+
+
+    (
+        selected_groups,
+        mode_label,
+        skipped_groups,
+    ) = (
+        select_groups(
+            arguments
+        )
+    )
+
 
     print()
     print("=" * 76)
     print(
-        "PHASE 7C.7g - OPERATIONAL "
-        "REGRESSION SUITE"
+        "VIGILOX REGRESSION SUITE"
+    )
+    print(
+        f"MODE: {mode_label}"
     )
     print("=" * 76)
 
@@ -488,7 +635,7 @@ def main() -> int:
     for (
         group_name,
         test_files,
-    ) in TEST_GROUPS:
+    ) in selected_groups:
 
         print()
         print("=" * 76)
@@ -602,9 +749,53 @@ def main() -> int:
     print()
     print("=" * 76)
     print(
-        "PHASE 7C.7g SUMMARY"
+        "REGRESSION SUMMARY"
+    )
+    print(
+        f"MODE: {mode_label}"
     )
     print("=" * 76)
+
+
+    # ======================================================
+    # NEVER SILENTLY NARROW COVERAGE
+    # ======================================================
+
+    if skipped_groups:
+
+        skipped_count = sum(
+            len(
+                entry[1]
+            )
+            for entry in skipped_groups
+        )
+
+
+        print()
+        print(
+            f"SKIPPED : {skipped_count} test(s) "
+            "not executed in this mode:"
+        )
+
+
+        for (
+            group_name,
+            test_files,
+        ) in skipped_groups:
+
+            print(
+                f"  - {group_name} "
+                f"({len(test_files)} tests)"
+            )
+
+
+        print()
+        print(
+            "  This run is NOT the full "
+            "release gate."
+        )
+
+        print()
 
     print(
         f"PASSED  : {passed}"
@@ -643,18 +834,32 @@ def main() -> int:
     if failed:
 
         print(
-            "[FAIL] PHASE 7C.7g OPERATIONAL "
-            "REGRESSION SUITE FAILED"
+            "[FAIL] REGRESSION SUITE FAILED "
+            f"({mode_label})"
         )
 
 
         return 1
 
 
-    print(
-        "[PASS] PHASE 7C.7g OPERATIONAL "
-        "REGRESSION SUITE PASSED"
-    )
+    if skipped_groups:
+
+        print(
+            "[PASS] REGRESSION SUITE PASSED "
+            f"({mode_label})"
+        )
+
+        print(
+            "       Full release gate not yet "
+            "proven - rerun without flags."
+        )
+
+
+    else:
+
+        print(
+            "[PASS] FULL RELEASE GATE PASSED"
+        )
 
 
     return 0

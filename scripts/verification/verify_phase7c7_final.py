@@ -1,3 +1,50 @@
+# ==========================================================
+# PROJECT ROOT BOOTSTRAP
+# PHASE 8.2
+# ==========================================================
+#
+# This block exists so the script can be run directly:
+#
+#     python scripts\<area>\<script>.py
+#
+# Direct execution sets sys.path[0] to the script's OWN
+# directory, so the backend and database packages would not
+# be importable and the script would fail with:
+#
+#     ModuleNotFoundError: No module named 'backend'
+#
+# The canonical invocation is module form, which resolves the
+# project root itself and needs no bootstrap:
+#
+#     python -m scripts.<area>.<script>
+#
+# Both forms are supported. This is the single sanctioned
+# bootstrap pattern for scripts/ and it is documented in
+# scripts/README.md. It is deliberately absent from
+# backend/, database/ and tests/, which must never manipulate
+# sys.path.
+# ==========================================================
+
+import sys
+
+from pathlib import Path
+
+PROJECT_ROOT = (
+    Path(__file__)
+    .resolve()
+    .parents[2]
+)
+
+if str(PROJECT_ROOT) not in sys.path:
+
+    sys.path.insert(
+        0,
+        str(
+            PROJECT_ROOT
+        ),
+    )
+
+
 import json
 import logging
 import os
@@ -43,7 +90,7 @@ def verify_routes():
     )
 
 
-    from backend.app.main import (
+    from backend.app.main import (  # noqa: E402
         app,
     )
 
@@ -134,7 +181,7 @@ def verify_log_levels():
     )
 
 
-    from backend.app.core.logging import (
+    from backend.app.core.logging import (  # noqa: E402
         LOGGER_ROOT_NAME,
         SUPPORTED_LOG_LEVELS,
         resolve_log_level,
@@ -272,7 +319,7 @@ def verify_secret_safety():
     import io
 
 
-    from backend.app.core.logging import (
+    from backend.app.core.logging import (  # noqa: E402
         LOGGER_ROOT_NAME,
         StructuredJSONFormatter,
         get_operational_logger,

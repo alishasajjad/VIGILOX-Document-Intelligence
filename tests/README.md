@@ -3,24 +3,33 @@
 Standalone executable test scripts, not pytest. Each file has a `main()`
 and is run directly.
 
-The project root must be importable. Either use the module form, or
-export `PYTHONPATH` and use the path form:
+Run from the repository root. Module form is canonical and needs no
+`PYTHONPATH`:
 
 ```powershell
 $env:PYTHONIOENCODING = "utf-8"
-
-# module form
 .\.venv\Scripts\python.exe -m tests.api.test_phase7c_readiness
-
-# path form
-$env:PYTHONPATH = "."
-.\.venv\Scripts\python.exe .\tests\api\test_phase7c_readiness.py
 ```
 
-The regression runner exports `PYTHONPATH` itself, so it needs no setup:
+The regression runner exports `PYTHONPATH` to its child processes, so it
+needs no setup either:
 
 ```powershell
-.\.venv\Scripts\python.exe .\scripts\verification\run_phase7c7g_regressions.py
+# standard - no real PaddleOCR/Groq
+.\.venv\Scripts\python.exe -m scripts.verification.run_phase7c7g_regressions --exclude-real
+
+# full release gate
+.\.venv\Scripts\python.exe -m scripts.verification.run_phase7c7g_regressions
+```
+
+Running a test **file directly** does still require `PYTHONPATH`, because
+`sys.path[0]` becomes the test's own directory. Test files deliberately
+carry no `sys.path` bootstrap: that pattern is confined to `scripts/`,
+where tools are meant to be launched by hand. Prefer the module form.
+
+```powershell
+$env:PYTHONPATH = "."
+.\.venv\Scripts\python.exe .\tests\api\test_phase7c_readiness.py
 ```
 
 ## Categories

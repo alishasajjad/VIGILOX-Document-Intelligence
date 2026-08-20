@@ -45,9 +45,8 @@ current until the rerun happens.
 
 ```powershell
 $env:PYTHONIOENCODING = "utf-8"
-$env:PYTHONPATH = "."
-.\.venv\Scripts\python.exe .\scripts\evaluation\evaluation_runner.py
-.\.venv\Scripts\python.exe .\scripts\evaluation\evaluation_metrics.py
+.\.venv\Scripts\python.exe -m scripts.evaluation.evaluation_runner
+.\.venv\Scripts\python.exe -m scripts.evaluation.evaluation_metrics
 ```
 
 Archive the existing reports first. Budget for ~63 Groq document runs,
