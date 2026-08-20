@@ -13,6 +13,39 @@ Supported document types:
 
 ---
 
+## Project status
+
+| Area | State |
+| --- | --- |
+| OCR + preprocessing | ✅ complete |
+| Structured LLM extraction | ✅ complete |
+| OCR evidence validation | ✅ complete |
+| Confidence, dates, anomalies | ✅ complete |
+| Machine + human review, audit | ✅ complete |
+| FastAPI + PostgreSQL | ✅ complete |
+| Evaluation framework | ✅ complete |
+| Review queue + dashboard | ✅ complete |
+| Production hardening | ✅ complete |
+| Professional repository structure | ✅ complete |
+| Standard regression gate | ✅ 41 / 41 |
+| Real-dependency release gate | 🟡 2 blocked on Groq daily quota |
+| Professional UI / product experience | 🚧 in progress |
+
+Two gates, deliberately separate:
+
+- **Standard development gate** — unit, integration, API, security,
+  storage, dashboard and deterministic end-to-end tests. No paid or
+  network inference. Currently 41 / 41.
+- **Real-dependency release gate** — the above plus real PaddleOCR, real
+  Groq and real PostgreSQL. Required before a production release.
+  Currently blocked by the Groq tokens-per-day allowance, reported as
+  `EXTERNAL_BLOCKED` rather than as a pass or a failure.
+
+Open validation items are tracked in
+[`docs/phases/pending-validation.md`](docs/phases/pending-validation.md).
+
+---
+
 ## Why this design
 
 The system is built around one rule: **every extracted value must be
@@ -259,6 +292,22 @@ roughly 6,400 Groq tokens each against a 200,000/day allowance. The
 runner always names the groups it skipped and states whether the full
 gate was actually proven. See [`scripts/README.md`](scripts/README.md).
 
+### Test outcomes
+
+| Outcome | Meaning | Exit code |
+| --- | --- | --- |
+| `PASS` | the test passed | 0 |
+| `FAIL` | a real defect: assertion, import, path, database, OCR | 1 |
+| `EXTERNAL_BLOCKED` | the LLM provider refused on quota. **Not a pass.** | 2 |
+| `MISSING` | the test file was not found | 1 |
+
+`EXTERNAL_BLOCKED` is deliberately narrow. It requires the test to be in
+the declared real-dependency group *and* the output to name a provider
+rate-limit exception *and* carry a quota signature. Any code-failure
+signature in the output overrides it, so an `AssertionError` stays a
+`FAIL` even alongside a rate-limit error. A blocked run reports the
+release gate as incomplete, never as green.
+
 Every file the suite reads is tracked, so a fresh clone runs the whole
 suite with no private or locally-supplied document. Fixtures come from
 `evaluation/images/`; see [`tests/README.md`](tests/README.md).
@@ -295,6 +344,35 @@ regenerated since. Re-run the evaluation before treating them as current.
 
 ---
 
+## Frontend
+
+Plain HTML, CSS and vanilla JavaScript served by FastAPI. No build step,
+no framework.
+
+```text
+frontend/
+├── pages/     index.html, review_detail.html
+└── static/    dashboard.css, dashboard.js, review_detail.js
+```
+
+| Route | Page |
+| --- | --- |
+| `GET /review` | review queue |
+| `GET /review/{document_id}` | document review workspace |
+| `GET /review/static/*` | assets |
+
+The frontend is a pure API consumer and holds no authority. It never
+supplies reviewer identity — `reviewer_id` in a review request body is
+legacy and ignored server-side. It must present machine values and
+human-corrected effective values as visibly distinct things.
+
+See [`frontend/README.md`](frontend/README.md) for the backend contract,
+and [`docs/phases/phase8-ui-requirements.md`](docs/phases/phase8-ui-requirements.md)
+for the product requirements being built out, including the mandatory
+Upload Document experience.
+
+---
+
 ## Security notes
 
 - `.env`, API keys and database credentials are never committed or logged.
@@ -319,8 +397,13 @@ regenerated since. Re-run the evaluation before treating them as current.
 ## Current limitations
 
 - Processing is synchronous; a large upload blocks its request.
-- No batching, background workers or queueing yet.
-- Groq usage is subject to a daily token quota with no retry/backoff layer.
+- No batching, background workers or queueing yet. Planned for Phase 9.
+- Groq usage is subject to a daily token quota with no retry/backoff
+  layer. When exhausted, real-dependency tests report
+  `EXTERNAL_BLOCKED`.
+- `evaluation/reports/` predates the Phase 7C.8 extraction-prompt change
+  and should be regenerated before its accuracy figures are quoted as
+  current.
 - Bounding boxes are captured but not yet used to highlight evidence on
   the document image.
 - The review dashboard is desktop-oriented.
