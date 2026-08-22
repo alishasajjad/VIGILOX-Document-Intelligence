@@ -25,6 +25,7 @@
 [Setup](#local-development) •
 [API](#api-overview) •
 [Testing](#testing) •
+[Research](https://github.com/alishasajjad/VIGILOX-Document-Intelligence-Research) •
 [Security](#security) •
 [Deployment](#-deployment) •
 [Documentation](#documentation)
@@ -1734,6 +1735,14 @@ pending uploads
 Use synthetic or properly authorized documents for development and testing.
 
 ---
+
+# 🔬 Research Repository
+
+For detailed experiments, evaluation methodology, engineering decisions, and phase-by-phase technical notes, visit the dedicated research repository:
+
+**[VIGILOX Document Intelligence Research](https://github.com/alishasajjad/VIGILOX-Document-Intelligence-Research)**
+
+--- 
 
 # License
 
