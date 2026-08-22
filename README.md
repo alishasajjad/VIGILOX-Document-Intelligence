@@ -1268,6 +1268,25 @@ This was a metric-definition correction rather than a model regression.
 
 ---
 
+## Precision, Recall and F1 Evaluation
+
+Field extraction was evaluated on **63 labeled documents** covering guard licenses, ID cards, and SIA badges.
+
+| Metric | Score |
+|---|---:|
+| Normalized Precision | **98.49%** |
+| Normalized Recall | **98.49%** |
+| Normalized F1 Score | **98.49%** |
+| Exact Precision | 94.88% |
+| Exact Recall | 94.88% |
+| Exact F1 Score | 94.88% |
+
+The normalized evaluation measures semantic field-value correctness while ignoring benign formatting differences such as capitalization, punctuation, and spacing.
+
+For the full evaluation methodology and error analysis, see [`evaluation/reports/precision_recall_report.md`](evaluation/reports/precision_recall_report.md).
+
+---
+
 # Performance
 
 Measured architecture behavior showed that OCR is the dominant local processing cost.
