@@ -841,7 +841,25 @@ def test_navigation_contract(
 
 
     # ======================================================
-    # PENDING ITEMS ARE NOT LINKS
+    # EVERY DESTINATION IS EITHER A WORKING LINK
+    # OR AN EXPLICITLY DISABLED PLACEHOLDER
+    # ======================================================
+    #
+    # UPDATED IN PHASE 8.8B.
+    #
+    # This assertion originally required at least one
+    # aria-disabled item, because Dashboard and Documents were
+    # still unbuilt. Both now exist, so nothing is pending and
+    # that requirement would fail for the right reason.
+    #
+    # The rule it was protecting is what matters and is kept:
+    #
+    #     a nav item is EITHER a real anchor whose href
+    #     resolves, OR a non-anchor marked aria-disabled
+    #
+    # so a nav item can never look clickable and go nowhere.
+    # Asserted for every destination by name, which is
+    # strictly stronger than counting attributes.
     # ======================================================
 
     pending_anchor = (
@@ -863,18 +881,109 @@ def test_navigation_contract(
     )
 
 
-    assert_true(
-        "aria-disabled" in markup,
-        (
-            "Pending navigation items should be "
-            "marked aria-disabled."
-        ),
+    nav_markup = (
+        nav_block.group(
+            1
+        )
     )
 
 
+    for label in PRIMARY_NAVIGATION:
+
+        # --------------------------------------------------
+        # Find the element that carries this label and
+        # inspect it, rather than searching the whole page.
+        # --------------------------------------------------
+
+        item = (
+            re.search(
+                (
+                    r'<(a|span)(\s[^>]*)?>\s*'
+                    r'<span class="nav-item-label">'
+                    + re.escape(
+                        label
+                    )
+                    + r"</span>"
+                ),
+                nav_markup,
+                re.DOTALL,
+            )
+        )
+
+
+        assert_true(
+            item is not None,
+            (
+                "Could not locate the navigation "
+                f"item for '{label}'."
+            ),
+        )
+
+
+        tag = item.group(
+            1
+        )
+
+        attributes = (
+            item.group(
+                2
+            )
+            or ""
+        )
+
+
+        if tag == "a":
+
+            href = (
+                re.search(
+                    r'href="([^"]+)"',
+                    attributes,
+                )
+            )
+
+
+            assert_true(
+                href is not None,
+                (
+                    f"'{label}' is an anchor with "
+                    "no href."
+                ),
+            )
+
+
+            assert_true(
+                client.get(
+                    href.group(
+                        1
+                    )
+                ).status_code
+                < 400,
+                (
+                    f"'{label}' links to "
+                    f"{href.group(1)}, which does "
+                    "not resolve."
+                ),
+            )
+
+
+        else:
+
+            assert_true(
+                "aria-disabled"
+                in attributes,
+                (
+                    f"'{label}' is not a link, so "
+                    "it must be marked "
+                    "aria-disabled to keep it out "
+                    "of the tab order."
+                ),
+            )
+
+
     print(
-        "[PASS] Not-yet-routed items are "
-        "non-interactive, not broken links"
+        f"[PASS] All {len(PRIMARY_NAVIGATION)} "
+        "destinations are either working links or "
+        "explicitly disabled placeholders"
     )
 
 

@@ -12,6 +12,42 @@
     box-sizing: border-box;
 }
 
+
+/* ==========================================================
+   HIDDEN
+   ==========================================================
+   The browser's own stylesheet says [hidden] { display: none },
+   but an author rule setting display beats it no matter how
+   weak its selector is -- author styles always win over the
+   user-agent origin.
+
+   This product hides and shows things with the hidden
+   attribute in eleven modules, and the elements being hidden
+   carry .btn, .alert, .badge, .file-card, .processing-panel,
+   .drop-zone and img -- every one of which sets display. So
+   hidden was silently doing nothing on precisely the elements
+   that relied on it: the upload page rendered "in progress",
+   "analyzed successfully" and "analysis failed" at once, the
+   file card showed an <img> with no src as a broken image, and
+   the workspace offered Approve, Correct, Reject, Submit
+   Corrections and Cancel simultaneously.
+
+   !important is correct here and is the reason this rule
+   exists. Without it, every component class that sets display
+   would have to defeat it individually, which is not a thing
+   anyone can remember to do.
+
+   The other !important declarations in this codebase are the
+   reduced-motion and print overrides below and .btn.is-pending
+   in components.css. The frontend audit allows those four and
+   fails on any new one, so this stays a deliberate list rather
+   than a habit.
+   ========================================================== */
+
+[hidden] {
+    display: none !important;
+}
+
 html {
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;

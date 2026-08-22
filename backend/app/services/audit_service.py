@@ -1,3 +1,45 @@
+# ==========================================================
+# FILE-BASED AUDIT TRAIL
+# SUPERSEDED - DO NOT WIRE THIS INTO PRODUCTION
+# ==========================================================
+#
+# This wrote the audit trail to output/audit/audit_log.jsonl
+# in Phase 5, before there was a database.
+#
+# THE AUDIT TRAIL IS NOW POSTGRESQL.
+# ----------------------------------------------------------
+# database.repositories.AuditEventRepository writes to the
+# audit_events table, inside the same transaction as the
+# document and its analysis, so an audit event cannot exist
+# for a document that was never saved and cannot be missing
+# for one that was. PersistenceService writes the machine
+# decision and the human review that way, and
+# DocumentQueryService.get_document_history reads that table
+# to build the timeline the interface shows.
+#
+# A JSONL file next to it would be a second, weaker record:
+# not transactional, not queryable, not backed up with the
+# database, and written to a directory that is gitignored and
+# never read by anything.
+#
+#
+# WHY IT IS STILL HERE
+# ----------------------------------------------------------
+# tests/integration/test_phase5_end_to_end.py exercises it,
+# and that suite is in the release gate and passes. Deleting
+# the module means retiring a passing gate test, which is a
+# scope decision rather than a cleanup.
+#
+# The Phase 11.1 structure audit
+# (scripts/verification/audit_repository_structure.py) reports
+# it as imported only by tests. That is the correct state for
+# it: nothing under backend/ or database/ imports it, and
+# nothing should start.
+#
+# If you are adding an audit event, use
+# AuditEventRepository.
+# ==========================================================
+
 import json
 
 from datetime import datetime, timezone

@@ -14,6 +14,37 @@ from backend.app.domain.schemas import (
 class EvidenceValidator:
 
     # ======================================================
+    # FIELDS THIS VALIDATOR RAISES FLAGS FOR
+    # PHASE 10.6
+    # ======================================================
+    #
+    # Every flag this class emits is named
+    # {FIELD}_{KIND}, so this tuple is the authoritative list
+    # of field prefixes a flag can carry.
+    #
+    # It used to be a hand-written dict inside validate() and
+    # a SECOND hand-written list in vocabulary.js, which the
+    # browser used to work out which field a flag belonged to.
+    # PHASE 10.6 made this the one definition:
+    # backend.app.domain.findings parses flags against it, and
+    # test_phase10_finding_normalization asserts the two agree.
+    #
+    # Order matters only in that it fixes the order flags are
+    # emitted in, which keeps the stored payload stable.
+    # ======================================================
+
+    VALIDATED_FIELDS = (
+        "full_name",
+        "licence_number",
+        "id_number",
+        "expiry_date",
+        "date_of_birth",
+        "issue_date",
+        "issuer",
+    )
+
+
+    # ======================================================
     # FIELDS THAT REQUIRE DATE SEMANTIC MATCHING
     # ======================================================
 
@@ -535,28 +566,16 @@ class EvidenceValidator:
         # FIELDS TO VALIDATE
         # ==================================================
 
+        # PHASE 10.6. Built from VALIDATED_FIELDS rather than
+        # written out again, so the list of fields this
+        # validator covers exists in exactly one place. The
+        # emitted flags and the iteration order are unchanged.
         fields = {
-
-            "full_name":
-                extraction.full_name,
-
-            "licence_number":
-                extraction.licence_number,
-
-            "id_number":
-                extraction.id_number,
-
-            "expiry_date":
-                extraction.expiry_date,
-
-            "date_of_birth":
-                extraction.date_of_birth,
-
-            "issue_date":
-                extraction.issue_date,
-
-            "issuer":
-                extraction.issuer,
+            name: getattr(
+                extraction,
+                name,
+            )
+            for name in self.VALIDATED_FIELDS
         }
 
 

@@ -1,0 +1,496 @@
+# ==========================================================
+# VIGILOX DOCUMENT INTELLIGENCE
+# PRODUCTION-LIKE STACK
+# PHASE 11.9
+# ==========================================================
+#
+# Five services, and no more:
+#
+#     proxy       the only public ingress
+#     api         FastAPI, not published to the host
+#     worker      the document job worker, no ports at all
+#     postgres    the database AND the durable job queue
+#     migrate     one-shot, applies migrations, exits
+#
+#
+# THERE IS NO REDIS, AND THAT IS DELIBERATE
+# ----------------------------------------------------------
+# The job queue is PostgreSQL, using SELECT ... FOR UPDATE
+# SKIP LOCKED with worker leases. That is not a stopgap: it
+# gives the queue transactional consistency with the documents
+# it refers to, which a separate broker cannot. A job and the
+# document row it produced commit together or not at all.
+#
+# Adding Redis would introduce a second store to back up, to
+# secure, to monitor and to keep consistent with PostgreSQL,
+# in exchange for nothing this workload needs. A queue that
+# handles a few documents a minute is not a queue that needs
+# a broker.
+#
+#
+# WHAT IS NOT VERIFIED
+# ----------------------------------------------------------
+# Docker is not installed in the environment this was written
+# in. THIS STACK HAS NEVER BEEN STARTED.
+#
+# The file parses as YAML and its structure is asserted by
+# tests/deployment/test_phase11_containerization.py, but
+# `docker compose up` has not run. Phase 12's deployment
+# smoke covers that and reports EXTERNAL_BLOCKED until Docker
+# is available. Nothing here is claimed as passing.
+# ==========================================================
+
+name: vigilox
+
+
+# ==========================================================
+# NETWORKS
+# ==========================================================
+#
+# TWO networks, which is the whole point of the topology.
+#
+#   edge      proxy only. The only thing bound to the host.
+#   internal  proxy, api, worker, postgres.
+#
+# The api is NOT on edge and publishes NO ports, so it is
+# unreachable from the host or the network the host is on.
+# That matters specifically because of the Phase 11.5 identity
+# model: in trusted_headers mode the reviewer identity comes
+# from an HTTP header that the proxy injects. If the api port
+# were reachable directly, a client could send that header
+# itself and bypass the proxy entirely.
+#
+# The application refuses such a request anyway -- the peer
+# would not be in VIGILOX_TRUSTED_PROXIES -- so this is the
+# second of two independent controls rather than the only one.
+# Both, because either alone is one mistake away from being
+# nothing.
+# ==========================================================
+
+networks:
+
+  edge:
+    driver: bridge
+
+  internal:
+    driver: bridge
+    # No external routing needed between these services.
+    internal: false
+
+
+# ==========================================================
+# VOLUMES
+# ==========================================================
+#
+# THREE, and the separation is load-bearing.
+#
+#   postgres-data     the database, including the job queue
+#   document-storage  managed source documents
+#   pending-uploads   uploads waiting for a worker
+#
+# WHY DOCUMENT STORAGE AND PENDING UPLOADS ARE SEPARATE
+# VOLUMES rather than two directories in one:
+#
+# Phase 9.2 established the rule. A pending upload has no
+# document row yet, by definition. StorageIntegrityService
+# classifies a managed file with no row as ORPHAN_STORAGE --
+# and orphan storage is the ONE category reconciliation
+# deletes automatically. If pending lived inside the managed
+# root, every in-flight upload would look like an orphan and
+# documents would be deleted mid-processing.
+#
+# The application refuses to start if the pending root is
+# nested inside the managed root, so the mistake is loud
+# rather than silent. Separate volumes make it structurally
+# impossible.
+#
+# A model cache volume is deliberately NOT here: the models
+# are baked into the image (see the Dockerfile), so a
+# container start needs no outbound network. Nothing in the
+# model cache is document data.
+# ==========================================================
+
+volumes:
+
+  postgres-data:
+
+  document-storage:
+
+  pending-uploads:
+
+
+# ==========================================================
+# SHARED APPLICATION ENVIRONMENT
+# ==========================================================
+#
+# NO SECRETS IN THIS FILE.
+#
+# Every value here is either non-sensitive or a reference to
+# something supplied at deploy time. The credentials come from
+# a .env file next to this one, which is gitignored, or from
+# the orchestrator's own secret mechanism.
+#
+# ${VAR:?message} FAILS THE COMMAND if VAR is unset, with that
+# message. Used for every credential, so a missing secret is a
+# refusal to start rather than a service running with an empty
+# password.
+# ==========================================================
+
+x-application-environment: &application-environment
+
+  DATABASE_URL: >-
+    postgresql+psycopg://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:?POSTGRES_DB is required}
+
+  GROQ_API_KEY: ${GROQ_API_KEY:?GROQ_API_KEY is required}
+
+  # Turns on the Phase 11.5 startup checks. Also set in the
+  # image; repeated here so reading this file tells you the
+  # posture without opening the Dockerfile.
+  VIGILOX_ENVIRONMENT: production
+
+  # ------------------------------------------------------
+  # THE IDENTITY BOUNDARY
+  # ------------------------------------------------------
+  # trusted_headers: the reviewer comes from headers the
+  # proxy injects after authenticating the user.
+  #
+  # VIGILOX_TRUSTED_PROXIES must cover the proxy's address on
+  # the internal network. Docker assigns those from the
+  # bridge subnet, so the private ranges are listed rather
+  # than a single address that would change.
+  #
+  # Production REFUSES TO START if this is empty while
+  # trusted_headers is active, because the headers would then
+  # be accepted from anywhere.
+  # ------------------------------------------------------
+  VIGILOX_REVIEW_IDENTITY_MODE: trusted_headers
+  VIGILOX_TRUSTED_PROXIES: ${VIGILOX_TRUSTED_PROXIES:-172.16.0.0/12,10.0.0.0/8,192.168.0.0/16}
+
+  # uvicorn only rewrites request.client.host from
+  # X-Forwarded-For when the immediate peer is in this list.
+  # The identity boundary reads that value, so this list and
+  # VIGILOX_TRUSTED_PROXIES describe the same trust.
+  VIGILOX_FORWARDED_ALLOW_IPS: ${VIGILOX_TRUSTED_PROXIES:-172.16.0.0/12,10.0.0.0/8,192.168.0.0/16}
+
+  DOCUMENT_STORAGE_DIR: /data/documents
+  DOCUMENT_PENDING_DIR: /data/pending
+
+  VIGILOX_LOG_LEVEL: ${VIGILOX_LOG_LEVEL:-INFO}
+
+
+services:
+
+  # ========================================================
+  # POSTGRESQL
+  # ========================================================
+  #
+  # 18, matching the version the project is developed and
+  # tested against. Not "latest": a major version arriving on
+  # a `docker compose pull` is a migration nobody planned.
+  # ========================================================
+
+  postgres:
+
+    image: postgres:18-alpine
+
+    restart: unless-stopped
+
+    networks:
+      - internal
+
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+
+      # scram-sha-256 rather than the image default. md5 is
+      # long deprecated and this database holds the audit
+      # trail for identity document decisions.
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+    # No ports. PostgreSQL is reachable only from the
+    # internal network. Publishing 5432 to the host is how a
+    # development convenience becomes an exposed database.
+
+    command:
+      # ----------------------------------------------------
+      # max_connections
+      # ----------------------------------------------------
+      # 100 is the image default and it is NOT automatically
+      # enough. Connections are per PROCESS (Phase 11.2):
+      #
+      #     each api replica     up to 20
+      #     each worker replica  worker concurrency + 1
+      #
+      # At the defaults -- 1 api, 1 worker -- that is about 22,
+      # comfortably inside 100. Scaling api to 4 makes it
+      # about 82, and the reserved superuser connections start
+      # to matter.
+      #
+      # Raise this together with the replica count, or the
+      # symptom is "FATAL: sorry, too many clients already"
+      # under exactly the load the scale-up was for.
+      # ----------------------------------------------------
+      - "postgres"
+      - "-c"
+      - "max_connections=${POSTGRES_MAX_CONNECTIONS:-100}"
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "${POSTGRES_USER}" -d "${POSTGRES_DB}"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+
+  # ========================================================
+  # MIGRATIONS
+  # ========================================================
+  #
+  # One-shot. Runs `alembic upgrade head` and exits.
+  #
+  # A SEPARATE SERVICE rather than something the api does at
+  # startup, because two api replicas starting together would
+  # both try to migrate, and a schema change applied twice
+  # concurrently is how a deploy corrupts a database.
+  #
+  # api and worker both wait for this to complete
+  # successfully, so they never run against a schema older
+  # than their code.
+  # ========================================================
+
+  migrate:
+
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    image: vigilox:latest
+
+    command: ["migrate"]
+
+    restart: "no"
+
+    networks:
+      - internal
+
+    environment:
+      <<: *application-environment
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+
+  # ========================================================
+  # THE API
+  # ========================================================
+
+  api:
+
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    image: vigilox:latest
+
+    command: ["api"]
+
+    restart: unless-stopped
+
+    # internal ONLY. Not on edge, and no ports published.
+    # See the NETWORKS note: the proxy is the only ingress.
+    networks:
+      - internal
+
+    environment:
+      <<: *application-environment
+
+      # Lazy OCR. The API does not run OCR -- the worker does
+      # -- and the only route here that needs a pipeline is
+      # the legacy synchronous analyze endpoint.
+      #
+      # MEASURED: eager startup about 2929 ms, lazy about
+      # 3 ms. Per replica, for a route a deployment on the job
+      # API may never call.
+      #
+      # CONSEQUENCE: readiness does not mean the OCR model is
+      # loaded in this process. It never meant "OCR works" --
+      # readiness deliberately runs no OCR -- but with lazy
+      # loading it does not even mean the model is resident.
+      VIGILOX_API_EAGER_PIPELINE: "false"
+
+      VIGILOX_REQUEST_CONCURRENCY: ${VIGILOX_REQUEST_CONCURRENCY:-20}
+
+      # Defence in depth only. The authoritative deployment
+      # limit is in the proxy -- see docker/nginx/nginx.conf.
+      # This one is per process and cannot bound total load.
+      VIGILOX_RATE_LIMIT_ENABLED: "true"
+
+      # TLS terminates at the proxy, so the proxy owns HSTS.
+      # Sending it from here as well would be harmless but
+      # would put the same decision in two places.
+      VIGILOX_HSTS_ENABLED: "false"
+
+    volumes:
+      - document-storage:/data/documents
+      - pending-uploads:/data/pending
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+    healthcheck:
+      # readiness, not liveness. For a service behind a proxy
+      # the useful question is "should traffic go here", and
+      # that is what /health/ready answers.
+      test:
+        - CMD-SHELL
+        - curl --fail --silent http://127.0.0.1:8000/health/ready || exit 1
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+    # ----------------------------------------------------
+    # SIGTERM GRACE
+    # ----------------------------------------------------
+    # 30 seconds. An in-flight request has to finish, and the
+    # legacy synchronous analyze route can legitimately take
+    # tens of seconds because it runs OCR inline.
+    # ----------------------------------------------------
+    stop_grace_period: 30s
+
+
+  # ========================================================
+  # THE WORKER
+  # ========================================================
+
+  worker:
+
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    image: vigilox:latest
+
+    command: ["worker"]
+
+    restart: unless-stopped
+
+    networks:
+      - internal
+
+    environment:
+      <<: *application-environment
+
+      # Eager, unlike the api. For the worker the model IS
+      # the job: loading it at startup means a model that
+      # cannot load fails the container rather than the first
+      # claimed job, and the ~2929 ms is not spent while
+      # already holding a lease.
+      VIGILOX_WORKER_EAGER_PIPELINE: "true"
+
+      # One job at a time per container. OCR is CPU-bound and
+      # already multi-threaded, so parallel passes on one
+      # container contend for the same cores. Scale by adding
+      # worker containers.
+      VIGILOX_WORKER_CONCURRENCY: ${VIGILOX_WORKER_CONCURRENCY:-1}
+
+    volumes:
+      - document-storage:/data/documents
+      - pending-uploads:/data/pending
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+    # ----------------------------------------------------
+    # SIGTERM GRACE
+    # ----------------------------------------------------
+    # 400 seconds, and the number is derived rather than
+    # generous-by-feel.
+    #
+    # The measured worst-case pipeline is 268 seconds (OCR to
+    # 43s, extraction worst case 220s under bounded retries).
+    # The worker's graceful shutdown finishes the document in
+    # hand and then stops, so the grace period has to cover
+    # that worst case or Docker SIGKILLs it partway.
+    #
+    # A killed worker is not incorrect -- the lease expires
+    # and another worker reclaims the job, and mark_completed
+    # is scoped to the worker that still holds it -- but it
+    # wastes a full OCR pass and delays the document by the
+    # lease timeout. 400 gives 268 room to spare.
+    # ----------------------------------------------------
+    stop_grace_period: 400s
+
+
+  # ========================================================
+  # THE REVERSE PROXY
+  # ========================================================
+  #
+  # nginx rather than Caddy, for one reason that matters here:
+  # limit_req_zone. It is the authoritative deployment rate
+  # limit, it is shared across all api replicas because it
+  # lives in front of them, and it is the thing the
+  # process-local application limiter cannot be.
+  # ========================================================
+
+  proxy:
+
+    image: nginx:1.27-alpine
+
+    restart: unless-stopped
+
+    networks:
+      - edge
+      - internal
+
+    ports:
+      # The ONLY published ports in the stack.
+      - "${VIGILOX_HTTP_PORT:-80}:80"
+      - "${VIGILOX_HTTPS_PORT:-443}:443"
+
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+
+      # nginx.conf includes this from both the HTTP and the
+      # HTTPS server block, so the identity-header strip and
+      # the route limits cannot differ between them. Both
+      # files have to be mounted or nginx fails to start with
+      # an include error -- which is the right failure, but
+      # only if you know to look for it.
+      - ./docker/nginx/vigilox-locations.conf:/etc/nginx/vigilox-locations.conf:ro
+
+      # TLS material, supplied by the deployment. Optional so
+      # the stack starts on plain HTTP for a local trial.
+      #
+      # NO CERTIFICATE IS SHIPPED IN THIS REPOSITORY. A
+      # self-signed certificate committed to a repository is
+      # worse than none: it looks like TLS and its private key
+      # is public.
+      - ${VIGILOX_TLS_DIR:-./docker/nginx/tls}:/etc/nginx/tls:ro
+
+    depends_on:
+      api:
+        condition: service_healthy
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - nginx -t || exit 1
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+    stop_grace_period: 30s

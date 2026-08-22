@@ -10,6 +10,21 @@ from typing import (
     Mapping,
 )
 
+# PHASE 12.1: core, not api.
+#
+# This import used to reach up into
+# backend/app/api/security_headers.py, which made a
+# service depend on the API layer -- the only layering
+# inversion in the repository, found by
+# scripts/verification/audit_repository_structure.py.
+#
+# The definitions did not change; they moved to a layer
+# below both callers.
+from backend.app.core.trusted_peers import (
+    is_trusted_peer,
+    trusted_proxy_networks,
+)
+
 
 # ==========================================================
 # IDENTITY ERRORS
@@ -146,6 +161,7 @@ class ReviewerIdentityService:
         *,
         mode: str | None = None,
         local_reviewer_id: str | None = None,
+        trusted_proxies=None,
         local_reviewer_role: str | None = None,
     ):
 
@@ -193,6 +209,23 @@ class ReviewerIdentityService:
         # ==================================================
         # LOCAL DEVELOPMENT IDENTITY
         # ==================================================
+
+        # PHASE 11.5. Which peers may forward an identity.
+        #
+        # None means read VIGILOX_TRUSTED_PROXIES, which is
+        # what a running deployment does.
+        #
+        # An explicit value is for a caller that is NOT a
+        # deployment: a test of header parsing states the peer
+        # it is standing in for, rather than the result
+        # depending on the environment it happens to run in.
+        self.trusted_proxies = (
+            tuple(
+                trusted_proxies
+            )
+            if trusted_proxies is not None
+            else None
+        )
 
         self.local_reviewer_id = (
             local_reviewer_id
@@ -454,7 +487,41 @@ class ReviewerIdentityService:
             ]
             | None
         ) = None,
+        peer: str | None = None,
     ) -> ReviewerIdentity:
+
+        """
+        peer
+        ------------------------------------------------------
+        PHASE 11.5. The address the request actually arrived
+        from.
+
+        In trusted_headers mode the reviewer identity comes
+        from an HTTP header, and an HTTP header can be sent by
+        anyone who can reach the port. Before Phase 11.5 that
+        was the whole check: any client able to reach the
+        application directly could send
+
+            X-VIGILOX-REVIEWER-ID: whoever
+            X-VIGILOX-REVIEWER-ROLE: ADMIN
+
+        and be that reviewer, with their decisions written into
+        the audit trail under that name.
+
+        The documented mitigation was that the reverse proxy
+        strips client-supplied copies. That is necessary and it
+        is not sufficient: it assumes the proxy is the only
+        path to the port. A container published on the host, a
+        misconfigured security group, or anything else inside
+        the network reaches the application directly and the
+        proxy never sees it.
+
+        So the headers are now honoured only when the peer is
+        one of VIGILOX_TRUSTED_PROXIES. With that unset,
+        NOTHING is trusted -- a deployment that forgot to
+        configure it gets refused identity rather than
+        accepting it from anywhere.
+        """
 
         # ==================================================
         # LOCAL SERVER-CONFIGURED IDENTITY
@@ -480,6 +547,32 @@ class ReviewerIdentityService:
         ):
 
             if headers is None:
+
+                raise (
+                    ReviewerAuthenticationRequired(
+                        (
+                            "Trusted reviewer "
+                            "headers are required."
+                        )
+                    )
+                )
+
+
+            # ----------------------------------------------
+            # THE HEADERS ARE ONLY TRUSTED FROM A PROXY
+            # ----------------------------------------------
+            # Deliberately the same error as a missing
+            # identity. Telling an untrusted caller that its
+            # headers were rejected for coming from the wrong
+            # address confirms both that the mechanism exists
+            # and which header names to try from somewhere
+            # else.
+            # ----------------------------------------------
+
+            if not is_trusted_peer(
+                peer,
+                self.trusted_proxies,
+            ):
 
                 raise (
                     ReviewerAuthenticationRequired(
@@ -540,6 +633,75 @@ class ReviewerIdentityService:
     # RESOLVE + AUTHORIZE REVIEWER
     # ======================================================
 
+    # ======================================================
+    # DEPLOYMENT POSTURE
+    # PHASE 11.5
+    # ======================================================
+
+    def posture_errors(
+        self,
+        *,
+        environment: str,
+    ) -> list[str]:
+
+        """
+        Reasons this identity configuration must not serve
+        production traffic.
+
+        Returns a list so a misconfigured deployment learns
+        everything wrong with it at once rather than one
+        restart at a time.
+
+        Called at startup. Refusing to start is the point: a
+        service that comes up and quietly attributes every
+        review to "local-reviewer" is worse than one that
+        does not come up, because the first is discovered by
+        auditing decisions after the fact.
+        """
+
+        if environment != "production":
+            return []
+
+        problems = []
+
+        if self.mode == self.MODE_LOCAL_ENV:
+
+            problems.append(
+                "VIGILOX_REVIEW_IDENTITY_MODE is "
+                "'local_env', which takes the reviewer from "
+                "server configuration and gives every "
+                "reviewer the same identity. Every review "
+                "decision would be attributed to "
+                f"'{self.local_reviewer_id}' in the audit "
+                "trail. Production requires "
+                "'trusted_headers' behind an authenticating "
+                "proxy."
+            )
+
+        if self.mode == self.MODE_TRUSTED_HEADERS:
+
+            configured = (
+                self.trusted_proxies
+                if self.trusted_proxies is not None
+                else trusted_proxy_networks()
+            )
+
+            if not configured:
+
+                problems.append(
+                    "VIGILOX_REVIEW_IDENTITY_MODE is "
+                    "'trusted_headers' but "
+                    "VIGILOX_TRUSTED_PROXIES is empty. The "
+                    "reviewer identity would come from an "
+                    "HTTP header that any client able to "
+                    "reach this port could send, including "
+                    "role=ADMIN. Set it to the address or "
+                    "CIDR of the reverse proxy."
+                )
+
+        return problems
+
+
     def resolve_reviewer(
         self,
         *,
@@ -550,13 +712,17 @@ class ReviewerIdentityService:
             ]
             | None
         ) = None,
+        peer: str | None = None,
     ) -> ReviewerIdentity:
 
         identity = (
             self.resolve(
                 headers=(
                     headers
-                )
+                ),
+                peer=(
+                    peer
+                ),
             )
         )
 

@@ -11,8 +11,25 @@
     >
 
     <title>
-        VIGILOX Review Dashboard
+        Review Queue · VIGILOX
     </title>
+
+    <link
+        rel="icon"
+        type="image/svg+xml"
+        href="/review/static/favicon.svg"
+    />
+
+    <link
+        rel="alternate icon"
+        type="image/x-icon"
+        href="/review/static/favicon.ico"
+    />
+
+    <link
+        rel="apple-touch-icon"
+        href="/review/static/apple-touch-icon.png"
+    />
 
     <link
         rel="stylesheet"
@@ -32,11 +49,6 @@
     <link
         rel="stylesheet"
         href="/review/static/css/components.css"
-    >
-
-    <link
-        rel="stylesheet"
-        href="/review/static/dashboard.css"
     >
 
     <link
@@ -92,33 +104,33 @@
                     Workspace
                 </p>
 
-                <span
-                    class="nav-item is-pending"
-                    aria-disabled="true"
+                <a
+                    href="/dashboard"
+                    class="nav-item"
+                    data-nav-match="exact"
+                    data-nav-prefix="/dashboard"
                 >
                     <span class="nav-item-label">Dashboard</span>
-                    <span class="nav-pending-tag">
-                        Soon
-                    </span>
-                </span>
-                <span
-                    class="nav-item is-pending"
-                    aria-disabled="true"
+                </a>
+
+                <a
+                    href="/upload"
+                    class="nav-item"
+                    data-nav-match="exact"
+                    data-nav-prefix="/upload"
                 >
                     <span class="nav-item-label">Upload Document</span>
-                    <span class="nav-pending-tag">
-                        Soon
-                    </span>
-                </span>
-                <span
-                    class="nav-item is-pending"
-                    aria-disabled="true"
+                </a>
+
+                <a
+                    href="/documents"
+                    class="nav-item"
+                    data-nav-match="prefix"
+                    data-nav-prefix="/documents"
                 >
                     <span class="nav-item-label">Documents</span>
-                    <span class="nav-pending-tag">
-                        Soon
-                    </span>
-                </span>
+                </a>
+
                 <a
                     href="/review"
                     class="nav-item"
@@ -215,10 +227,6 @@
             class="main-content"
         >
 
-            <!-- ========================================= -->
-            <!-- PAGE HEADER -->
-            <!-- ========================================= -->
-
             <header class="page-header">
 
                 <div>
@@ -232,8 +240,10 @@
                     </h1>
 
                     <p class="page-description">
-                        Inspect machine-flagged documents
-                        and complete human verification.
+                        Documents VIGILOX could not confirm on
+                        its own evidence. Ordered by the review
+                        priority the machine assigned, most
+                        urgent first.
                     </p>
 
                 </div>
@@ -242,9 +252,9 @@
                 <div class="header-actions">
 
                     <button
-                        id="refresh-button"
-                        class="secondary-button"
                         type="button"
+                        id="refresh-button"
+                        class="btn btn-secondary"
                     >
                         Refresh
                     </button>
@@ -255,279 +265,186 @@
 
 
             <!-- ========================================= -->
-            <!-- SUMMARY -->
+            <!-- PRIORITY SUMMARY -->
             <!-- ========================================= -->
+            <!--
+                Counted from the rows the server returned for
+                the current filters. This is a count of what is
+                on screen, not a second aggregation: the queue
+                endpoint returns the whole filtered set in one
+                bounded response.
+            -->
 
-            <section class="summary-grid">
+            <section
+                class="section"
+                aria-labelledby="queue-summary-title"
+            >
 
-                <article class="summary-card">
+                <h2
+                    id="queue-summary-title"
+                    class="visually-hidden"
+                >
+                    Queue summary
+                </h2>
 
-                    <span class="summary-label">
-                        Pending Reviews
-                    </span>
-
-                    <strong
-                        id="pending-count"
-                        class="summary-value"
-                    >
-                        —
-                    </strong>
-
-                </article>
-
-
-                <article class="summary-card">
-
-                    <span class="summary-label">
-                        High Priority
-                    </span>
-
-                    <strong
-                        id="high-count"
-                        class="summary-value"
-                    >
-                        —
-                    </strong>
-
-                </article>
-
-
-                <article class="summary-card">
-
-                    <span class="summary-label">
-                        Medium Priority
-                    </span>
-
-                    <strong
-                        id="medium-count"
-                        class="summary-value"
-                    >
-                        —
-                    </strong>
-
-                </article>
-
-
-                <article class="summary-card">
-
-                    <span class="summary-label">
-                        Low Priority
-                    </span>
-
-                    <strong
-                        id="low-count"
-                        class="summary-value"
-                    >
-                        —
-                    </strong>
-
-                </article>
+                <div
+                    id="queue-summary"
+                    class="grid grid-4"
+                ></div>
 
             </section>
 
 
-            <!-- ========================================= -->
-            <!-- REVIEW QUEUE PANEL -->
-            <!-- ========================================= -->
+            <section
+                class="card"
+                aria-labelledby="queue-title"
+            >
 
-            <section class="panel">
-
-                <div class="panel-header queue-panel-header">
+                <div class="card-head">
 
                     <div>
 
-                        <h2>
+                        <h2
+                            id="queue-title"
+                            class="card-title"
+                        >
                             Documents Requiring Review
                         </h2>
 
-                        <p>
-                            Pending machine-flagged cases,
-                            ordered by review priority.
+                        <p class="section-hint">
+                            Open a document to inspect its
+                            evidence and record a decision.
                         </p>
 
                     </div>
 
+                </div>
 
-                    <!-- ================================= -->
-                    <!-- FILTERS -->
-                    <!-- ================================= -->
 
-                    <div class="queue-filters">
+                <!-- ===================================== -->
+                <!-- FILTERS -->
+                <!-- ===================================== -->
+                <!--
+                    Both filters are applied by the queue API.
+                    Nothing here filters rows in the browser,
+                    so the count and the rows always agree.
+                -->
+
+                <form
+                    id="queue-filter-form"
+                    class="toolbar"
+                    aria-label="Filter the review queue"
+                >
+
+                    <div class="field">
+
+                        <label
+                            class="field-label"
+                            for="priority-filter"
+                        >
+                            Priority
+                        </label>
 
                         <select
                             id="priority-filter"
-                            class="filter-control"
-                            aria-label="Priority filter"
+                            class="select"
                         >
-
-                            <option value="">
-                                All Priorities
-                            </option>
-
-                            <option value="HIGH">
-                                High
-                            </option>
-
-                            <option value="MEDIUM">
-                                Medium
-                            </option>
-
-                            <option value="LOW">
-                                Low
-                            </option>
-
+                            <option value="">All priorities</option>
+                            <option value="HIGH">High</option>
+                            <option value="MEDIUM">Medium</option>
+                            <option value="LOW">Low</option>
                         </select>
 
+                    </div>
+
+
+                    <div class="field">
+
+                        <label
+                            class="field-label"
+                            for="document-type-filter"
+                        >
+                            Document type
+                        </label>
 
                         <select
                             id="document-type-filter"
-                            class="filter-control"
-                            aria-label="Document type filter"
+                            class="select"
                         >
-
-                            <option value="">
-                                All Document Types
-                            </option>
-
-                            <option value="guard_license">
-                                Guard License
-                            </option>
-
-                            <option value="sia_badge">
-                                SIA Badge
-                            </option>
-
-                            <option value="id_card">
-                                ID Card
-                            </option>
-
+                            <option value="">All types</option>
+                            <option value="guard_license">Guard Licence</option>
+                            <option value="sia_badge">SIA Badge</option>
+                            <option value="id_card">ID Card</option>
                         </select>
 
                     </div>
 
-                </div>
 
+                    <div class="toolbar-actions">
 
-                <!-- ===================================== -->
-                <!-- LOADING -->
-                <!-- ===================================== -->
+                        <button
+                            type="button"
+                            id="reset-filters-button"
+                            class="btn btn-secondary"
+                        >
+                            Reset
+                        </button>
 
-                <div
-                    id="queue-loading"
-                    class="queue-state"
-                    hidden
-                >
-
-                    <div class="loading-spinner"></div>
-
-                    <p>
-                        Loading review queue...
-                    </p>
-
-                </div>
-
-
-                <!-- ===================================== -->
-                <!-- ERROR -->
-                <!-- ===================================== -->
-
-                <div
-                    id="queue-error"
-                    class="queue-state"
-                    hidden
-                >
-
-                    <div class="state-icon error-icon">
-                        !
                     </div>
 
-                    <h3>
-                        Unable to load review queue
-                    </h3>
-
-                    <p id="queue-error-message">
-                        Please try again.
-                    </p>
-
-                </div>
+                </form>
 
 
-                <!-- ===================================== -->
-                <!-- EMPTY -->
-                <!-- ===================================== -->
+                <div class="card-body card-body-flush">
 
-                <div
-                    id="queue-empty"
-                    class="queue-state"
-                    hidden
-                >
-
-                    <div class="state-icon success-icon">
-                        ✓
-                    </div>
-
-                    <h3>
-                        No pending reviews
-                    </h3>
-
-                    <p>
-                        There are currently no documents
-                        matching the selected filters.
-                    </p>
-
-                </div>
+                    <p
+                        id="queue-status"
+                        class="result-summary result-summary-inset"
+                        role="status"
+                        aria-live="polite"
+                    ></p>
 
 
-                <!-- ===================================== -->
-                <!-- QUEUE TABLE -->
-                <!-- ===================================== -->
+                    <!-- ================================= -->
+                    <!-- LOADING -->
+                    <!-- ================================= -->
 
-                <div
-                    id="queue-table-container"
-                    class="table-container"
-                    hidden
-                >
-
-                    <table class="review-table">
-
-                        <thead>
-
-                            <tr>
-
-                                <th>
-                                    Document
-                                </th>
-
-                                <th>
-                                    Type
-                                </th>
-
-                                <th>
-                                    Priority
-                                </th>
-
-                                <th>
-                                    Reasons
-                                </th>
-
-                                <th>
-                                    Created
-                                </th>
-
-                                <th>
-                                    Action
-                                </th>
-
-                            </tr>
-
-                        </thead>
+                    <div
+                        id="queue-loading"
+                        role="status"
+                    ></div>
 
 
-                        <tbody id="queue-table-body">
+                    <!-- ================================= -->
+                    <!-- ERROR -->
+                    <!-- ================================= -->
 
-                        </tbody>
+                    <div
+                        id="queue-error"
+                        role="alert"
+                        hidden
+                    ></div>
 
-                    </table>
+
+                    <!-- ================================= -->
+                    <!-- EMPTY -->
+                    <!-- ================================= -->
+
+                    <div
+                        id="queue-empty"
+                        role="status"
+                        hidden
+                    ></div>
+
+
+                    <!-- ================================= -->
+                    <!-- QUEUE -->
+                    <!-- ================================= -->
+
+                    <div
+                        id="queue-table-container"
+                        hidden
+                    ></div>
 
                 </div>
 
@@ -544,6 +461,10 @@
 
     <script
         src="/review/static/js/common.js"
+    ></script>
+
+    <script
+        src="/review/static/js/vocabulary.js"
     ></script>
 
     <script

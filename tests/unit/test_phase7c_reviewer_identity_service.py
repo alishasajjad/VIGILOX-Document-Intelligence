@@ -97,7 +97,15 @@ def main():
 
                 "X-VIGILOX-REVIEWER-ROLE":
                     "ADMIN",
-            }
+            },
+
+            # PHASE 11.5. The peer this test stands in for,
+            # matching the trusted_proxies given to the
+            # service above. Header PARSING is what is under
+            # test here; the network boundary is tested in
+            # tests/deployment/
+            # test_phase11_security_boundary.py.
+            peer="proxy-under-test",
         )
     )
 
@@ -159,7 +167,21 @@ def main():
         ReviewerIdentityService(
             mode=(
                 "trusted_headers"
-            )
+            ),
+
+            # PHASE 11.5. These tests exercise HEADER
+            # PARSING, not the network boundary. Naming the
+            # peer they stand in for keeps the result
+            # independent of whatever VIGILOX_TRUSTED_PROXIES
+            # happens to be in the environment they run in.
+            #
+            # The boundary itself -- that a forged header from
+            # a non-proxy address is refused -- is tested in
+            # tests/deployment/
+            # test_phase11_security_boundary.py.
+            trusted_proxies=(
+                "proxy-under-test",
+            ),
         )
     )
 
@@ -172,7 +194,15 @@ def main():
 
                 "x-vigilox-reviewer-role":
                     "reviewer",
-            }
+            },
+
+            # PHASE 11.5. The peer this test stands in for,
+            # matching the trusted_proxies given to the
+            # service above. Header PARSING is what is under
+            # test here; the network boundary is tested in
+            # tests/deployment/
+            # test_phase11_security_boundary.py.
+            peer="proxy-under-test",
         )
     )
 
@@ -233,7 +263,15 @@ def main():
 
                 "X-VIGILOX-REVIEWER-ROLE":
                     "ADMIN",
-            }
+            },
+
+            # PHASE 11.5. The peer this test stands in for,
+            # matching the trusted_proxies given to the
+            # service above. Header PARSING is what is under
+            # test here; the network boundary is tested in
+            # tests/deployment/
+            # test_phase11_security_boundary.py.
+            peer="proxy-under-test",
         )
     )
 
@@ -277,7 +315,15 @@ def main():
 
                     "X-VIGILOX-REVIEWER-ROLE":
                         "VIEWER",
-                }
+                },
+
+                # PHASE 11.5. The peer this test stands in for,
+                # matching the trusted_proxies given to the
+                # service above. Header PARSING is what is under
+                # test here; the network boundary is tested in
+                # tests/deployment/
+                # test_phase11_security_boundary.py.
+                peer="proxy-under-test",
             )
         ),
 
@@ -314,7 +360,15 @@ def main():
                 headers={
                     "X-VIGILOX-REVIEWER-ROLE":
                         "REVIEWER",
-                }
+                },
+
+                # PHASE 11.5. The peer this test stands in for,
+                # matching the trusted_proxies given to the
+                # service above. Header PARSING is what is under
+                # test here; the network boundary is tested in
+                # tests/deployment/
+                # test_phase11_security_boundary.py.
+                peer="proxy-under-test",
             )
         ),
 
@@ -354,7 +408,15 @@ def main():
 
                     "X-VIGILOX-REVIEWER-ROLE":
                         "SUPERUSER",
-                }
+                },
+
+                # PHASE 11.5. The peer this test stands in for,
+                # matching the trusted_proxies given to the
+                # service above. Header PARSING is what is under
+                # test here; the network boundary is tested in
+                # tests/deployment/
+                # test_phase11_security_boundary.py.
+                peer="proxy-under-test",
             )
         ),
 

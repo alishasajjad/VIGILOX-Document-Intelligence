@@ -651,7 +651,17 @@ def main():
 
             app.state.reviewer_identity = (
                 ReviewerIdentityService(
-                    mode="trusted_headers"
+                    mode="trusted_headers",
+                    trusted_proxies=(
+                        # PHASE 11.5. TestClient reports its
+                        # peer as the literal "testclient".
+                        # Naming it here is this test saying
+                        # it stands in for the reverse proxy;
+                        # the network boundary itself is
+                        # tested in
+                        # tests/deployment/test_phase11_security_boundary.py.
+                        "testclient",
+                    ),
                 )
             )
 
@@ -691,10 +701,39 @@ def main():
             )
 
 
+            # ==============================================
+            # UPDATED IN PHASE 8.10
+            # ==============================================
+            #
+            # The workspace was rebuilt and three of the ids
+            # this list used to name no longer exist:
+            #
+            #     final-status
+            #     final-is-final
+            #     final-is-usable
+            #
+            # They were three static spans that review_detail.js
+            # filled with innerHTML. The same three facts are now
+            # rendered as nodes inside #final-record, alongside
+            # the status note, and are also summarised in
+            # #overview-panel so the reviewer sees them without
+            # opening a tab.
+            #
+            # Dropping the ids would have weakened this test, so
+            # the containers that own those facts are asserted
+            # here, and the RENDERED output for all five final
+            # states is asserted behaviourally by
+            # tests/dashboard/test_phase8_document_workspace.py,
+            # which executes the modules and reads back the
+            # status text, the Final / Not final badge and the
+            # Usable / Not usable badge.
+            # ==============================================
+
             required_html_ids = [
-                'id="final-status"',
-                'id="final-is-final"',
-                'id="final-is-usable"',
+                # Final status, finality and usability.
+                'id="final-record"',
+                # The same three facts, always visible.
+                'id="overview-panel"',
                 'id="effective-values"',
                 'id="completed-review-summary"',
                 'id="human-review-form"',
@@ -746,74 +785,155 @@ def main():
             # 3. REVIEW DETAIL JAVASCRIPT CONTRACT
             # ==================================================
 
-            response = client.get(
-                "/review/static/review_detail.js"
-            )
+            # ==============================================
+            # UPDATED IN PHASE 8.10
+            # ==============================================
+            #
+            # This block used to require every identifier to be
+            # present in the single review_detail.js file, which
+            # was ~4,000 lines and rendered every panel itself.
+            #
+            # Phase 8.10 split it by responsibility. Requiring
+            # the old names in the old file would have blocked
+            # the refactor without protecting anything, so the
+            # assertion is now stronger instead of weaker: each
+            # responsibility must live in the module that OWNS
+            # it, and the forbidden legacy mechanisms must be
+            # absent from EVERY module in the bundle.
+            # ==============================================
+
+            module_features = {
+                # Page controller: identity and history.
+                "/review/static/review_detail.js": [
+                    "loadReviewerIdentity",
+                    "renderReviewerIdentity",
+                    "loadedReviewerIdentity",
+                    "loadReviewHistory",
+                    "can_review",
+                ],
+
+                # Final record, effective values, timeline.
+                "/review/static/js/workspace/result_view.js": [
+                    "renderFinalRecord",
+                    "renderEffectiveValues",
+                    "renderReviewHistory",
+                ],
+
+                # Approve / correct / reject.
+                "/review/static/js/workspace/review_actions.js": [
+                    "renderHumanReviewState",
+                    "HUMAN_CORRECTION",
+                ],
+
+                # The five final states have one owner.
+                "/review/static/js/vocabulary.js": [
+                    "AUTO_ACCEPTED",
+                    "PENDING_REVIEW",
+                    "APPROVED",
+                    "CORRECTED",
+                    "REJECTED",
+                ],
+
+                # Provenance presentation has one owner too.
+                # MACHINE and HUMAN_CORRECTION must map to
+                # distinct badge families here, because a
+                # reviewer must never mistake one for the other.
+                "/review/static/js/common.js": [
+                    "HUMAN_CORRECTION",
+                    "badge-provenance-human",
+                    "badge-provenance-machine",
+                ],
+
+                # The identity endpoint is named once, in the
+                # shared client.
+                "/review/static/js/api.js": [
+                    "/api/v1/reviewer/me",
+                ],
+            }
 
 
-            assert_equal(
-                response.status_code,
-                200,
-                (
-                    "review_detail.js should "
-                    "return HTTP 200."
-                ),
-            )
+            bundle = {}
 
 
-            detail_js = (
-                response.text
-            )
+            for (
+                asset,
+                features,
+            ) in module_features.items():
+
+                module_response = client.get(
+                    asset
+                )
 
 
-            required_js_features = [
-                "renderFinalRecord",
-                "renderEffectiveValues",
-                "renderHumanReviewState",
-                "renderReviewHistory",
-                "loadReviewHistory",
-                "loadReviewerIdentity",
-                "renderReviewerIdentity",
-                "/api/v1/reviewer/me",
-                "HUMAN_CORRECTION",
-                "PENDING_REVIEW",
-                "CORRECTED",
-                "REJECTED",
-                "AUTO_ACCEPTED",
-            ]
-
-
-            for feature in required_js_features:
-
-                assert_true(
-                    feature
-                    in detail_js,
+                assert_equal(
+                    module_response.status_code,
+                    200,
                     (
-                        "Phase 7C.4/7C.5 "
-                        "JavaScript is missing "
-                        f"{feature}."
+                        "Workspace module should "
+                        f"return HTTP 200: {asset}"
                     ),
                 )
 
 
-            assert_true(
-                "getReviewerId("
-                not in detail_js,
-                (
-                    "Legacy getReviewerId() "
-                    "must not exist."
-                ),
-            )
+                source = module_response.text
+
+                bundle[asset] = source
 
 
-            assert_true(
-                "reviewerIdInput"
-                not in detail_js,
-                (
-                    "Legacy reviewerIdInput "
-                    "must not exist."
-                ),
-            )
+                for feature in features:
+
+                    assert_true(
+                        feature in source,
+                        (
+                            "Phase 7C.4/7C.5 "
+                            "responsibility is missing "
+                            f"from {asset}: {feature}"
+                        ),
+                    )
+
+
+            # ==============================================
+            # THE PAGE ACTUALLY LOADS EVERY MODULE
+            # ==============================================
+            #
+            # Asserting a file exists proves nothing if the page
+            # never loads it.
+            # ==============================================
+
+            for asset in module_features:
+
+                assert_true(
+                    asset in detail_html,
+                    (
+                        "The document workspace page "
+                        f"does not load {asset}."
+                    ),
+                )
+
+
+            # ==============================================
+            # LEGACY MECHANISMS ARE GONE FROM EVERY MODULE
+            # ==============================================
+
+            for (
+                asset,
+                source,
+            ) in bundle.items():
+
+                for forbidden in (
+                    "getReviewerId(",
+                    "reviewerIdInput",
+                ):
+
+                    assert_true(
+                        forbidden
+                        not in source,
+                        (
+                            "Legacy client-side reviewer "
+                            f"mechanism {forbidden} still "
+                            f"exists in {asset}."
+                        ),
+                    )
 
 
             print(

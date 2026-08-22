@@ -289,6 +289,99 @@ def select_ground_truth_records(
 # TRANSIENT ERROR DETECTION
 # ==========================================================
 
+# ==========================================================
+# HOW LONG TO WAIT AFTER A 429
+# PHASE 12.17
+# ==========================================================
+#
+# Groq states the answer in the error, and the runner used to
+# ignore it.
+#
+# The flat 65-second wait was sized for a TOKENS PER MINUTE
+# limit, where a minute genuinely clears it. The daily limit
+# behaves differently: the tokens-per-day window frees at
+# whatever rate they were consumed 24 hours earlier, and a
+# real refusal reads
+#
+#     Limit 200000, Used 196625, Requested 4512.
+#     Please try again in 8m11.183999999s
+#
+# Three attempts at 65 seconds covers 195 seconds of an
+# eight-minute wait, so every attempt failed and seven
+# documents were recorded as failures with plenty of allowance
+# about to free up. Measured during the Phase 12 run: the
+# window was releasing roughly 240 tokens a minute, so the
+# provider's estimate was accurate and the runner's was not.
+#
+# NOTHING ABOUT EXTRACTION CHANGES HERE. Not the prompt, not
+# the model, not the schema, not the field handling, not the
+# number of extraction attempts. A 429 is a quota signal, and
+# responding to one by touching extraction would corrupt the
+# comparison the run exists to make. This changes only how
+# long the script waits before asking the same question again.
+# ==========================================================
+
+RATE_LIMIT_WAIT_CEILING_SECONDS = 900
+
+
+def parse_retry_delay(
+    exc: Exception,
+) -> float | None:
+
+    """
+    The delay the provider asked for, in seconds.
+
+    Returns None when the error carries no hint, in which case
+    the caller falls back to RATE_LIMIT_WAIT_SECONDS.
+
+    Bounded by RATE_LIMIT_WAIT_CEILING_SECONDS so a
+    malformed or hostile value cannot park the run for hours.
+    """
+
+    import re
+
+    text = str(
+        exc
+    )
+
+    match = re.search(
+        r"try again in\s+"
+        r"(?:(\d+)m)?"
+        r"([\d.]+)s",
+        text,
+        re.IGNORECASE,
+    )
+
+    if not match:
+        return None
+
+    minutes = int(
+        match.group(
+            1
+        )
+        or 0
+    )
+
+    seconds = float(
+        match.group(
+            2
+        )
+    )
+
+    total = minutes * 60 + seconds
+
+    # A few seconds of margin: waiting exactly the stated time
+    # lands on the boundary and is refused again.
+    total += 5
+
+    return min(
+        total,
+        float(
+            RATE_LIMIT_WAIT_CEILING_SECONDS
+        ),
+    )
+
+
 def is_rate_limit_error(
     exc: Exception,
 ) -> bool:
@@ -786,15 +879,41 @@ def run_evaluation(
                     )
 
 
+                    # The provider's own estimate when it
+                    # gives one, because a flat wait sized
+                    # for a per-minute limit does not cover a
+                    # per-day one.
+                    hinted = parse_retry_delay(
+                        exc
+                    )
+
+                    delay = (
+                        hinted
+                        if hinted is not None
+                        else float(
+                            RATE_LIMIT_WAIT_SECONDS
+                        )
+                    )
+
+
                     print(
                         "Waiting",
-                        RATE_LIMIT_WAIT_SECONDS,
-                        "seconds before retry..."
+                        round(
+                            delay,
+                            1,
+                        ),
+                        "seconds before retry"
+                        + (
+                            " (the provider asked for this)"
+                            if hinted is not None
+                            else " (no hint given)"
+                        )
+                        + "..."
                     )
 
 
                     time.sleep(
-                        RATE_LIMIT_WAIT_SECONDS
+                        delay
                     )
 
 

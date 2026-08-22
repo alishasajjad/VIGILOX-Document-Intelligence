@@ -11,8 +11,25 @@
     >
 
     <title>
-        VIGILOX Document Review
+        Document Review · VIGILOX
     </title>
+
+    <link
+        rel="icon"
+        type="image/svg+xml"
+        href="/review/static/favicon.svg"
+    />
+
+    <link
+        rel="alternate icon"
+        type="image/x-icon"
+        href="/review/static/favicon.ico"
+    />
+
+    <link
+        rel="apple-touch-icon"
+        href="/review/static/apple-touch-icon.png"
+    />
 
     <link
         rel="stylesheet"
@@ -36,7 +53,7 @@
 
     <link
         rel="stylesheet"
-        href="/review/static/dashboard.css"
+        href="/review/static/css/workspace.css"
     >
 
     <link
@@ -92,33 +109,33 @@
                     Workspace
                 </p>
 
-                <span
-                    class="nav-item is-pending"
-                    aria-disabled="true"
+                <a
+                    href="/dashboard"
+                    class="nav-item"
+                    data-nav-match="exact"
+                    data-nav-prefix="/dashboard"
                 >
                     <span class="nav-item-label">Dashboard</span>
-                    <span class="nav-pending-tag">
-                        Soon
-                    </span>
-                </span>
-                <span
-                    class="nav-item is-pending"
-                    aria-disabled="true"
+                </a>
+
+                <a
+                    href="/upload"
+                    class="nav-item"
+                    data-nav-match="exact"
+                    data-nav-prefix="/upload"
                 >
                     <span class="nav-item-label">Upload Document</span>
-                    <span class="nav-pending-tag">
-                        Soon
-                    </span>
-                </span>
-                <span
-                    class="nav-item is-pending"
-                    aria-disabled="true"
+                </a>
+
+                <a
+                    href="/documents"
+                    class="nav-item"
+                    data-nav-match="prefix"
+                    data-nav-prefix="/documents"
                 >
                     <span class="nav-item-label">Documents</span>
-                    <span class="nav-pending-tag">
-                        Soon
-                    </span>
-                </span>
+                </a>
+
                 <a
                     href="/review"
                     class="nav-item"
@@ -216,879 +233,876 @@
         >
 
             <!-- ========================================= -->
-            <!-- HEADER -->
-            <!-- ========================================= -->
-
-            <header class="page-header">
-
-                <div>
-
-                    <p class="eyebrow">
-                        DOCUMENT REVIEW
-                    </p>
-
-                    <h1 id="document-title">
-                        Loading document...
-                    </h1>
-
-                    <p
-                        id="document-subtitle"
-                        class="page-description"
-                    >
-                        Loading machine analysis.
-                    </p>
-
-                </div>
-
-
-                <div class="header-actions">
-
-                    <a
-                        href="/review"
-                        class="secondary-link-button"
-                    >
-                        Back to Queue
-                    </a>
-
-                </div>
-
-            </header>
-
-
-            <!-- ========================================= -->
             <!-- LOADING -->
             <!-- ========================================= -->
 
-            <section
+            <div
                 id="detail-loading"
-                class="panel"
-            >
-
-                <div class="queue-state">
-
-                    <div class="loading-spinner"></div>
-
-                    <p>
-                        Loading document review...
-                    </p>
-
-                </div>
-
-            </section>
+                role="status"
+            ></div>
 
 
             <!-- ========================================= -->
             <!-- ERROR -->
             <!-- ========================================= -->
 
-            <section
+            <div
                 id="detail-error"
-                class="panel"
+                role="alert"
                 hidden
             >
 
-                <div class="queue-state">
+                <div class="card">
 
-                    <div class="state-icon error-icon">
-                        !
+                    <div class="card-body">
+
+                        <div
+                            id="detail-error-message"
+                            role="alert"
+                        ></div>
+
                     </div>
-
-                    <h3>
-                        Unable to load document
-                    </h3>
-
-                    <p id="detail-error-message">
-                        Please return to the review queue.
-                    </p>
 
                 </div>
 
-            </section>
+            </div>
 
 
             <!-- ========================================= -->
-            <!-- REVIEW CONTENT -->
+            <!-- CONTENT -->
             <!-- ========================================= -->
 
-            <section
+            <div
                 id="detail-content"
-                class="review-detail-layout"
                 hidden
             >
 
                 <!-- ===================================== -->
-                <!-- LEFT SIDE -->
+                <!-- DOCUMENT HEADER -->
                 <!-- ===================================== -->
+                <!--
+                    Status is answered here, before any JSON.
+                    Document type, final status, machine
+                    decision, expiry and review state are all
+                    on this line.
+                -->
 
-                <section
-                    class="panel document-preview-panel"
-                >
+                <header class="page-header workspace-header">
 
-                    <div class="panel-header">
+                    <div class="workspace-heading">
 
-                        <div>
+                        <p class="eyebrow">
+                            DOCUMENT REVIEW
+                        </p>
 
-                            <h2>
-                                Original Document
-                            </h2>
+                        <h1 id="document-title">
+                            Loading document
+                        </h1>
 
-                            <p>
-                                Uploaded source used by the
-                                machine analysis.
-                            </p>
-
-                        </div>
-
-                    </div>
-
-
-                    <div
-                        id="document-preview"
-                        class="document-preview"
-                    >
-
-                        <img
-                            id="original-document-image"
-                            alt="Original uploaded document"
-                            hidden
-                        >
-
+                        <p
+                            id="document-subtitle"
+                            class="page-description text-mono"
+                        ></p>
 
                         <div
-                            id="image-unavailable"
-                            class="image-unavailable"
-                            hidden
-                        >
-
-                            <div class="state-icon">
-                                !
-                            </div>
-
-                            <h3>
-                                Original image unavailable
-                            </h3>
-
-                            <p>
-                                This may be a legacy document
-                                processed before permanent
-                                source-image storage was enabled.
-                            </p>
-
-                        </div>
+                            id="document-badges"
+                            class="badge-stack workspace-badges"
+                        ></div>
 
                     </div>
 
-                </section>
+
+                    <div class="header-actions">
+
+                        <a
+                            href="/review"
+                            class="btn btn-ghost"
+                        >
+                            Back to queue
+                        </a>
+
+                        <button
+                            type="button"
+                            id="copy-json-button"
+                            class="btn btn-secondary"
+                        >
+                            Copy JSON
+                        </button>
+
+                        <button
+                            type="button"
+                            id="download-json-button"
+                            class="btn btn-secondary"
+                        >
+                            Download JSON
+                        </button>
+
+                    </div>
+
+                </header>
 
 
-                <!-- ===================================== -->
-                <!-- RIGHT SIDE -->
-                <!-- ===================================== -->
+                <p
+                    id="workspace-status"
+                    class="status-message"
+                    role="status"
+                    aria-live="polite"
+                ></p>
 
-                <div class="review-detail-right">
+
+                <div class="workspace">
 
                     <!-- ================================= -->
-                    <!-- FINAL RECORD STATUS -->
-                    <!-- PHASE 7C.3 / 7C.4 -->
+                    <!-- LEFT: SOURCE DOCUMENT -->
                     <!-- ================================= -->
+                    <!--
+                        Sticky on desktop, so the original
+                        stays visible while the reviewer reads
+                        down the extracted values.
+                    -->
 
-                    <section class="panel">
+                    <div class="workspace-source">
 
-                        <div class="panel-header">
+                        <section
+                            class="card"
+                            aria-labelledby="source-title"
+                        >
 
-                            <div>
+                            <div class="card-head">
 
-                                <h2>
-                                    Final Record Status
+                                <h2
+                                    id="source-title"
+                                    class="card-title"
+                                >
+                                    Original document
                                 </h2>
 
-                                <p>
-                                    Current authoritative state
-                                    of this document.
-                                </p>
+                                <div class="card-head-actions">
 
-                            </div>
+                                    <!--
+                                        An explicit for=, not
+                                        just a wrapping label.
+                                        The association is then
+                                        stated rather than
+                                        inferred from nesting.
+                                    -->
 
-                        </div>
-
-
-                        <div class="detail-section">
-
-                            <div class="final-status-grid">
-
-                                <div>
-
-                                    <span class="detail-label">
-                                        Final Status
-                                    </span>
-
-                                    <div id="final-status">
-                                        —
-                                    </div>
-
-                                </div>
-
-
-                                <div>
-
-                                    <span class="detail-label">
-                                        Final
-                                    </span>
-
-                                    <strong
-                                        id="final-is-final"
-                                        class="detail-value"
+                                    <label
+                                        class="switch"
+                                        for="highlight-toggle"
                                     >
-                                        —
-                                    </strong>
 
-                                </div>
+                                        <input
+                                            type="checkbox"
+                                            id="highlight-toggle"
+                                            checked
+                                        >
 
+                                        <span class="switch-label">
+                                            Show evidence
+                                        </span>
 
-                                <div>
-
-                                    <span class="detail-label">
-                                        Downstream Usable
-                                    </span>
-
-                                    <strong
-                                        id="final-is-usable"
-                                        class="detail-value"
-                                    >
-                                        —
-                                    </strong>
+                                    </label>
 
                                 </div>
 
                             </div>
 
 
-                            <div
-                                id="final-record-note"
-                                class="final-record-note"
-                            >
-                            </div>
+                            <div class="card-body">
 
-                        </div>
-
-                    </section>
-
-
-                    <!-- ================================= -->
-                    <!-- MACHINE DECISION -->
-                    <!-- ================================= -->
-
-                    <section class="panel">
-
-                        <div class="panel-header">
-
-                            <h2>
-                                Machine Review Decision
-                            </h2>
-
-                        </div>
-
-
-                        <div class="detail-section">
-
-                            <div class="decision-summary">
-
-                                <div>
-
-                                    <span class="detail-label">
-                                        Decision
-                                    </span>
-
-                                    <strong
-                                        id="machine-decision"
-                                        class="detail-value"
-                                    >
-                                        —
-                                    </strong>
-
-                                </div>
-
-
-                                <div>
-
-                                    <span class="detail-label">
-                                        Priority
-                                    </span>
-
-                                    <div id="machine-priority">
-                                        —
-                                    </div>
-
-                                </div>
-
-                            </div>
-
-
-                            <div class="detail-block">
-
-                                <span class="detail-label">
-                                    Reason Codes
-                                </span>
+                                <!--
+                                    The overlay is positioned
+                                    against the rendered image
+                                    box and scaled from the
+                                    image's own intrinsic size,
+                                    so the boxes stay aligned
+                                    at any display width.
+                                -->
 
                                 <div
-                                    id="machine-reasons"
-                                    class="reason-list detail-reasons"
+                                    id="document-preview"
+                                    class="source-frame"
                                 >
+
+                                    <img
+                                        id="original-document-image"
+                                        class="source-image"
+                                        alt="The original uploaded document"
+                                        hidden
+                                    >
+
+                                    <div
+                                        id="evidence-overlay"
+                                        class="evidence-overlay"
+                                        aria-hidden="true"
+                                    ></div>
+
                                 </div>
 
+
+                                <div
+                                    id="image-unavailable"
+                                    hidden
+                                ></div>
+
+
+                                <p
+                                    id="source-caption"
+                                    class="field-hint"
+                                ></p>
+
                             </div>
 
-                        </div>
-
-                    </section>
+                        </section>
 
 
-                    <!-- ================================= -->
-                    <!-- MACHINE EXTRACTION -->
-                    <!-- ================================= -->
+                        <section
+                            class="card workspace-facts"
+                            aria-labelledby="facts-title"
+                        >
 
-                    <section class="panel">
+                            <div class="card-head">
 
-                        <div class="panel-header">
-
-                            <div>
-
-                                <h2>
-                                    Machine Extracted Fields
+                                <h2
+                                    id="facts-title"
+                                    class="card-title"
+                                >
+                                    Document details
                                 </h2>
 
-                                <p>
-                                    Original machine values with
-                                    supporting OCR evidence.
-                                </p>
+                            </div>
+
+                            <div class="card-body card-body-flush">
+
+                                <div id="document-facts"></div>
 
                             </div>
 
-                        </div>
+                        </section>
+
+                    </div>
 
 
-                        <div
-                            id="extraction-fields"
-                            class="extraction-fields"
+                    <!-- ================================= -->
+                    <!-- RIGHT: INTELLIGENCE -->
+                    <!-- ================================= -->
+
+                    <div class="workspace-detail">
+
+                        <!-- ============================= -->
+                        <!-- OVERVIEW -->
+                        <!-- ============================= -->
+                        <!--
+                            Always visible. The reviewer should
+                            not have to open anything to learn
+                            where the document stands.
+                        -->
+
+                        <section
+                            class="card"
+                            aria-labelledby="overview-title"
                         >
-                        </div>
 
-                    </section>
+                            <div class="card-head">
 
-
-                    <!-- ================================= -->
-                    <!-- EFFECTIVE VALUES -->
-                    <!-- PHASE 7C.4 -->
-                    <!-- ================================= -->
-
-                    <section class="panel">
-
-                        <div class="panel-header">
-
-                            <div>
-
-                                <h2>
-                                    Effective Values
+                                <h2
+                                    id="overview-title"
+                                    class="card-title"
+                                >
+                                    Overview
                                 </h2>
 
-                                <p>
-                                    Final usable values after
-                                    applying the human review
-                                    decision.
-                                </p>
+                            </div>
+
+                            <div class="card-body">
+
+                                <div id="overview-panel"></div>
 
                             </div>
 
-                        </div>
+                        </section>
 
 
-                        <div
-                            id="effective-values"
-                            class="effective-values"
+                        <!-- ============================= -->
+                        <!-- HUMAN REVIEW -->
+                        <!-- ============================= -->
+                        <!--
+                            The action a reviewer came here to
+                            take stays above the detail tabs
+                            rather than hidden behind one.
+                        -->
+
+                        <section
+                            id="human-review-panel"
+                            class="card"
+                            aria-labelledby="human-review-title"
                         >
-                        </div>
 
-                    </section>
+                            <div class="card-head">
 
-
-                    <!-- ================================= -->
-                    <!-- VALIDATION -->
-                    <!-- ================================= -->
-
-                    <section class="panel">
-
-                        <div class="panel-header">
-
-                            <div>
-
-                                <h2>
-                                    Validation Findings
-                                </h2>
-
-                                <p>
-                                    Anomalies and validation
-                                    issues identified by the
-                                    machine pipeline.
-                                </p>
-
-                            </div>
-
-                        </div>
-
-
-                        <div
-                            id="anomaly-list"
-                            class="issue-list"
-                        >
-                        </div>
-
-                    </section>
-
-
-                    <!-- ================================= -->
-                    <!-- HUMAN REVIEW -->
-                    <!-- PHASE 7B.8 / 7C.4 / 7C.5 -->
-                    <!-- ================================= -->
-
-                    <section
-                        id="human-review-panel"
-                        class="panel"
-                    >
-
-                        <div class="panel-header">
-
-                            <div>
-
-                                <h2>
+                                <h2
+                                    id="human-review-title"
+                                    class="card-title"
+                                >
                                     Human Review
                                 </h2>
 
-                                <p>
-                                    Reviewer decision and final
-                                    correction information.
-                                </p>
-
                             </div>
 
-                        </div>
+
+                            <div class="card-body">
+
+                                <p
+                                    id="review-message"
+                                    class="status-message"
+                                    role="status"
+                                    aria-live="polite"
+                                ></p>
 
 
-                        <!-- ============================= -->
-                        <!-- REVIEW MESSAGE -->
-                        <!-- ============================= -->
+                                <!-- ===================== -->
+                                <!-- COMPLETED REVIEW -->
+                                <!-- ===================== -->
 
-                        <div
-                            id="review-message"
-                            class="
-                                review-message
-                                review-panel-message
-                            "
-                            hidden
-                        >
-                        </div>
+                                <div
+                                    id="completed-review-summary"
+                                    hidden
+                                >
 
+                                    <div class="detail-rows">
 
-                        <!-- ============================= -->
-                        <!-- COMPLETED REVIEW SUMMARY -->
-                        <!-- PHASE 7C.4 -->
-                        <!-- ============================= -->
+                                        <div class="detail-row">
 
-                        <div
-                            id="completed-review-summary"
-                            class="completed-review-summary"
-                            hidden
-                        >
+                                            <span class="detail-label">
+                                                Decision
+                                            </span>
 
-                            <div class="completed-review-grid">
+                                            <span
+                                                id="completed-review-action"
+                                                class="detail-value"
+                                            ></span>
 
-                                <div>
+                                        </div>
 
-                                    <span class="detail-label">
-                                        Action
-                                    </span>
+                                        <div class="detail-row">
 
-                                    <div
-                                        id="completed-review-action"
-                                    >
-                                        —
+                                            <span class="detail-label">
+                                                Reviewer
+                                            </span>
+
+                                            <span
+                                                id="completed-reviewer"
+                                                class="detail-value"
+                                            ></span>
+
+                                        </div>
+
+                                        <div class="detail-row">
+
+                                            <span class="detail-label">
+                                                Reviewed
+                                            </span>
+
+                                            <span
+                                                id="completed-reviewed-at"
+                                                class="detail-value"
+                                            ></span>
+
+                                        </div>
+
+                                        <div class="detail-row">
+
+                                            <span class="detail-label">
+                                                Notes
+                                            </span>
+
+                                            <span
+                                                id="completed-review-notes"
+                                                class="detail-value"
+                                            ></span>
+
+                                        </div>
+
                                     </div>
 
-                                </div>
 
-
-                                <div>
-
-                                    <span class="detail-label">
-                                        Reviewer
-                                    </span>
-
-                                    <strong
-                                        id="completed-reviewer"
-                                        class="detail-value"
-                                    >
-                                        —
-                                    </strong>
+                                    <div
+                                        id="completed-review-corrections"
+                                        class="completed-corrections"
+                                    ></div>
 
                                 </div>
 
 
-                                <div>
-
-                                    <span class="detail-label">
-                                        Reviewed At
-                                    </span>
-
-                                    <strong
-                                        id="completed-reviewed-at"
-                                        class="detail-value"
-                                    >
-                                        —
-                                    </strong>
-
-                                </div>
-
-                            </div>
-
-
-                            <div class="completed-review-block">
-
-                                <span class="detail-label">
-                                    Notes
-                                </span>
+                                <!-- ===================== -->
+                                <!-- LOCKED -->
+                                <!-- ===================== -->
 
                                 <div
-                                    id="completed-review-notes"
-                                    class="completed-review-text"
-                                >
-                                    —
-                                </div>
-
-                            </div>
+                                    id="review-locked-message"
+                                    hidden
+                                ></div>
 
 
-                            <div class="completed-review-block">
-
-                                <span class="detail-label">
-                                    Corrections
-                                </span>
-
-                                <div
-                                    id="completed-review-corrections"
-                                    class="completed-corrections"
-                                >
-                                </div>
-
-                            </div>
-
-                        </div>
-
-
-                        <!-- ============================= -->
-                        <!-- REVIEW LOCK MESSAGE -->
-                        <!-- ============================= -->
-
-                        <div
-                            id="review-locked-message"
-                            class="review-locked-message"
-                            hidden
-                        >
-                        </div>
-
-
-                        <!-- ============================= -->
-                        <!-- AUTHENTICATED REVIEWER -->
-                        <!-- PHASE 7C.5 -->
-                        <!-- ============================= -->
-
-                        <div
-                            id="authenticated-reviewer-section"
-                            class="authenticated-reviewer-section"
-                        >
-
-                            <span class="form-label">
-                                Authenticated Reviewer
-                            </span>
-
-
-                            <div
-                                id="authenticated-reviewer-card"
-                                class="authenticated-reviewer-card"
-                            >
+                                <!-- ===================== -->
+                                <!-- AUTHENTICATED REVIEWER -->
+                                <!-- ===================== -->
+                                <!--
+                                    Read-only. Resolved by the
+                                    server. There is no input
+                                    for it anywhere on this
+                                    page.
+                                -->
 
                                 <div
-                                    id="authenticated-reviewer-loading"
-                                    class="authenticated-reviewer-loading"
-                                >
-                                    Loading authenticated reviewer...
-                                </div>
-
-
-                                <div
-                                    id="authenticated-reviewer-content"
+                                    id="authenticated-reviewer-section"
                                     hidden
                                 >
 
                                     <div
-                                        class="authenticated-reviewer-header"
+                                        id="authenticated-reviewer-card"
+                                        class="reviewer-card"
                                     >
 
-                                        <div>
+                                        <div
+                                            id="authenticated-reviewer-loading"
+                                            class="reviewer-card-loading"
+                                        >
+                                            Resolving reviewer identity&hellip;
+                                        </div>
 
-                                            <strong
-                                                id="authenticated-reviewer-name"
-                                                class="
-                                                    authenticated-reviewer-name
-                                                "
-                                            >
-                                                —
-                                            </strong>
+                                        <div
+                                            id="authenticated-reviewer-content"
+                                            hidden
+                                        >
 
-
-                                            <div
-                                                class="
-                                                    authenticated-reviewer-meta
-                                                "
-                                            >
+                                            <div class="reviewer-card-head">
 
                                                 <span
-                                                    id="authenticated-reviewer-role"
-                                                    class="reviewer-role-badge"
-                                                >
-                                                    —
+                                                    id="authenticated-reviewer-name"
+                                                    class="reviewer-card-name"
+                                                ></span>
+
+                                                <span
+                                                    id="authenticated-reviewer-access"
+                                                    class="reviewer-access-badge"
+                                                ></span>
+
+                                            </div>
+
+                                            <div class="reviewer-card-meta">
+
+                                                <span>
+                                                    Role:
+                                                    <span
+                                                        id="authenticated-reviewer-role"
+                                                    ></span>
                                                 </span>
 
-                                                <span
-                                                    id="authenticated-reviewer-source"
-                                                    class="reviewer-source"
-                                                >
-                                                    —
+                                                <span>
+                                                    Verified by:
+                                                    <span
+                                                        id="authenticated-reviewer-source"
+                                                    ></span>
                                                 </span>
 
                                             </div>
 
                                         </div>
 
-
                                         <div
-                                            id="authenticated-reviewer-access"
-                                            class="reviewer-access-badge"
-                                        >
-                                            —
-                                        </div>
+                                            id="authenticated-reviewer-error"
+                                            class="reviewer-card-error"
+                                            hidden
+                                        ></div>
 
                                     </div>
 
                                 </div>
 
 
+                                <!-- ===================== -->
+                                <!-- REVIEW FORM -->
+                                <!-- ===================== -->
+
                                 <div
-                                    id="authenticated-reviewer-error"
-                                    class="authenticated-reviewer-error"
+                                    id="human-review-form"
                                     hidden
                                 >
-                                </div>
 
-                            </div>
+                                    <div class="field">
 
-                        </div>
+                                        <label
+                                            class="field-label"
+                                            for="review-notes"
+                                        >
+                                            Reviewer notes
+                                        </label>
 
+                                        <textarea
+                                            id="review-notes"
+                                            class="textarea"
+                                            rows="3"
+                                            maxlength="2000"
+                                            aria-describedby="review-notes-hint"
+                                        ></textarea>
 
-                        <!-- ============================= -->
-                        <!-- REVIEW FORM -->
-                        <!-- ============================= -->
-
-                        <div
-                            id="human-review-form"
-                            class="human-review-form"
-                        >
-
-                            <!-- ========================= -->
-                            <!-- NOTES -->
-                            <!-- ========================= -->
-
-                            <div class="form-group">
-
-                                <label
-                                    for="review-notes"
-                                    class="form-label"
-                                >
-                                    Review Notes
-                                </label>
-
-                                <textarea
-                                    id="review-notes"
-                                    class="
-                                        form-control
-                                        review-notes
-                                    "
-                                    rows="4"
-                                    placeholder="Optional reviewer notes..."
-                                ></textarea>
-
-                            </div>
-
-
-                            <!-- ========================= -->
-                            <!-- CORRECTION EDITOR -->
-                            <!-- ========================= -->
-
-                            <div
-                                id="correction-panel"
-                                class="correction-panel"
-                                hidden
-                            >
-
-                                <div class="correction-header">
-
-                                    <div>
-
-                                        <h3>
-                                            Correct Extracted Fields
-                                        </h3>
-
-                                        <p>
-                                            Change only fields that
-                                            require correction.
+                                        <p
+                                            id="review-notes-hint"
+                                            class="field-hint"
+                                        >
+                                            Optional. Recorded in the
+                                            audit history against your
+                                            decision.
                                         </p>
 
                                     </div>
 
 
-                                    <button
-                                        id="cancel-correction-button"
-                                        type="button"
-                                        class="text-button"
+                                    <!-- ================= -->
+                                    <!-- CORRECTIONS -->
+                                    <!-- ================= -->
+                                    <!--
+                                        Only the fields the
+                                        backend accepts are
+                                        editable. There is no
+                                        free-form JSON editor.
+                                    -->
+
+                                    <div
+                                        id="correction-panel"
+                                        hidden
                                     >
-                                        Cancel correction
-                                    </button>
+
+                                        <div class="correction-head">
+
+                                            <h3 class="correction-title">
+                                                Correct extracted values
+                                            </h3>
+
+                                            <button
+                                                type="button"
+                                                id="cancel-correction-button"
+                                                class="btn btn-ghost btn-sm"
+                                            >
+                                                Cancel
+                                            </button>
+
+                                        </div>
+
+                                        <p class="field-hint">
+                                            The machine reading is kept.
+                                            Your correction is recorded
+                                            beside it and becomes the
+                                            effective value.
+                                        </p>
+
+                                        <div
+                                            id="correction-fields"
+                                            class="correction-fields"
+                                        ></div>
+
+                                    </div>
+
+
+                                    <div class="review-actions">
+
+                                        <button
+                                            type="button"
+                                            id="approve-button"
+                                            class="btn btn-primary"
+                                        >
+                                            Approve
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            id="correct-button"
+                                            class="btn btn-secondary"
+                                        >
+                                            Correct
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            id="submit-correction-button"
+                                            class="btn btn-primary"
+                                            hidden
+                                        >
+                                            Submit Corrections
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            id="reject-button"
+                                            class="btn btn-danger"
+                                        >
+                                            Reject
+                                        </button>
+
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+                        </section>
+
+
+                        <!-- ============================= -->
+                        <!-- DETAIL TABS -->
+                        <!-- ============================= -->
+                        <!--
+                            Tabs rather than a long scroll.
+
+                            The reviewer needs one of these at
+                            a time, and stacking all six would
+                            push the source document out of
+                            view on a laptop.
+
+                            Raw data is the last tab, never the
+                            default: it is a debugging aid, not
+                            the product.
+                        -->
+
+                        <section
+                            class="card"
+                            aria-labelledby="detail-tabs-title"
+                        >
+
+                            <h2
+                                id="detail-tabs-title"
+                                class="visually-hidden"
+                            >
+                                Document intelligence
+                            </h2>
+
+                            <div
+                                id="workspace-tablist"
+                                class="tablist"
+                                role="tablist"
+                                aria-label="Document intelligence"
+                            >
+
+                                <button
+                                    type="button"
+                                    id="tab-fields"
+                                    class="tab"
+                                    role="tab"
+                                    aria-selected="true"
+                                    aria-controls="panel-fields"
+                                >
+                                    Extracted Data
+                                </button>
+
+                                <button
+                                    type="button"
+                                    id="tab-validation"
+                                    class="tab"
+                                    role="tab"
+                                    aria-selected="false"
+                                    aria-controls="panel-validation"
+                                    tabindex="-1"
+                                >
+                                    Validation
+                                </button>
+
+                                <button
+                                    type="button"
+                                    id="tab-anomalies"
+                                    class="tab"
+                                    role="tab"
+                                    aria-selected="false"
+                                    aria-controls="panel-anomalies"
+                                    tabindex="-1"
+                                >
+                                    Findings
+                                </button>
+
+                                <button
+                                    type="button"
+                                    id="tab-result"
+                                    class="tab"
+                                    role="tab"
+                                    aria-selected="false"
+                                    aria-controls="panel-result"
+                                    tabindex="-1"
+                                >
+                                    Final Record
+                                </button>
+
+                                <button
+                                    type="button"
+                                    id="tab-history"
+                                    class="tab"
+                                    role="tab"
+                                    aria-selected="false"
+                                    aria-controls="panel-history"
+                                    tabindex="-1"
+                                >
+                                    History
+                                </button>
+
+                                <button
+                                    type="button"
+                                    id="tab-raw"
+                                    class="tab"
+                                    role="tab"
+                                    aria-selected="false"
+                                    aria-controls="panel-raw"
+                                    tabindex="-1"
+                                >
+                                    Technical Data
+                                </button>
+
+                            </div>
+
+
+                            <div class="card-body">
+
+                                <div
+                                    id="panel-fields"
+                                    role="tabpanel"
+                                    aria-labelledby="tab-fields"
+                                    tabindex="0"
+                                >
+
+                                    <div id="extraction-fields"></div>
 
                                 </div>
 
 
                                 <div
-                                    id="correction-fields"
-                                    class="correction-fields"
-                                >
-                                </div>
-
-
-                                <div class="correction-help">
-
-                                    Only values changed from the
-                                    machine extraction will be sent
-                                    as corrections.
-
-                                </div>
-
-                            </div>
-
-
-                            <!-- ========================= -->
-                            <!-- ACTION BUTTONS -->
-                            <!-- ========================= -->
-
-                            <div class="review-actions">
-
-                                <button
-                                    id="approve-button"
-                                    type="button"
-                                    class="
-                                        review-action-button
-                                        approve-button
-                                    "
-                                >
-                                    Approve
-                                </button>
-
-
-                                <button
-                                    id="reject-button"
-                                    type="button"
-                                    class="
-                                        review-action-button
-                                        reject-button
-                                    "
-                                >
-                                    Reject
-                                </button>
-
-
-                                <button
-                                    id="correct-button"
-                                    type="button"
-                                    class="
-                                        review-action-button
-                                        correct-button
-                                    "
-                                >
-                                    Correct
-                                </button>
-
-
-                                <button
-                                    id="submit-correction-button"
-                                    type="button"
-                                    class="
-                                        review-action-button
-                                        submit-correction-button
-                                    "
+                                    id="panel-validation"
+                                    role="tabpanel"
+                                    aria-labelledby="tab-validation"
+                                    tabindex="0"
                                     hidden
                                 >
-                                    Submit Corrections
-                                </button>
+
+                                    <div id="validation-content"></div>
+
+                                </div>
+
+
+                                <div
+                                    id="panel-anomalies"
+                                    role="tabpanel"
+                                    aria-labelledby="tab-anomalies"
+                                    tabindex="0"
+                                    hidden
+                                >
+
+                                    <div id="anomaly-list"></div>
+
+                                </div>
+
+
+                                <div
+                                    id="panel-result"
+                                    role="tabpanel"
+                                    aria-labelledby="tab-result"
+                                    tabindex="0"
+                                    hidden
+                                >
+
+                                    <div id="final-record"></div>
+
+                                    <div id="effective-values"></div>
+
+                                </div>
+
+
+                                <div
+                                    id="panel-history"
+                                    role="tabpanel"
+                                    aria-labelledby="tab-history"
+                                    tabindex="0"
+                                    hidden
+                                >
+
+                                    <div id="review-history-list"></div>
+
+                                </div>
+
+
+                                <div
+                                    id="panel-raw"
+                                    role="tabpanel"
+                                    aria-labelledby="tab-raw"
+                                    tabindex="0"
+                                    hidden
+                                >
+
+                                    <div id="raw-data"></div>
+
+                                </div>
 
                             </div>
 
-                        </div>
+                        </section>
 
-                    </section>
-
-
-                    <!-- ================================= -->
-                    <!-- REVIEW HISTORY -->
-                    <!-- PHASE 7C.4 -->
-                    <!-- ================================= -->
-
-                    <section class="panel">
-
-                        <div class="panel-header">
-
-                            <div>
-
-                                <h2>
-                                    Review History
-                                </h2>
-
-                                <p>
-                                    Immutable machine and human
-                                    review audit timeline.
-                                </p>
-
-                            </div>
-
-                        </div>
-
-
-                        <div
-                            id="review-history-list"
-                            class="review-history-list"
-                        >
-
-                            <div class="detail-empty">
-                                Loading review history...
-                            </div>
-
-                        </div>
-
-                    </section>
+                    </div>
 
                 </div>
 
-            </section>
+            </div>
 
         </main>
 
     </div>
+
+
+    <!-- ============================================= -->
+    <!-- CONFIRMATION DIALOG -->
+    <!-- ============================================= -->
+    <!--
+        A native <dialog>, so focus containment, Escape and
+        the backdrop come from the platform rather than from
+        hand-written key handling on a div.
+    -->
+
+    <dialog
+        id="confirm-dialog"
+        class="dialog"
+        aria-labelledby="confirm-title"
+        aria-describedby="confirm-body"
+    >
+
+        <div class="dialog-head">
+
+            <h2
+                id="confirm-title"
+                class="dialog-title"
+            ></h2>
+
+        </div>
+
+        <div
+            id="confirm-body"
+            class="dialog-body"
+        ></div>
+
+        <div class="dialog-foot">
+
+            <button
+                type="button"
+                id="confirm-cancel"
+                class="btn btn-secondary"
+            >
+                Cancel
+            </button>
+
+            <button
+                type="button"
+                id="confirm-accept"
+                class="btn btn-primary"
+            ></button>
+
+        </div>
+
+    </dialog>
 
 
     <script
@@ -1097,6 +1111,34 @@
 
     <script
         src="/review/static/js/common.js"
+    ></script>
+
+    <script
+        src="/review/static/js/vocabulary.js"
+    ></script>
+
+    <script
+        src="/review/static/js/workspace/tabs.js"
+    ></script>
+
+    <script
+        src="/review/static/js/workspace/source_panel.js"
+    ></script>
+
+    <script
+        src="/review/static/js/workspace/fields_view.js"
+    ></script>
+
+    <script
+        src="/review/static/js/workspace/validation_view.js"
+    ></script>
+
+    <script
+        src="/review/static/js/workspace/result_view.js"
+    ></script>
+
+    <script
+        src="/review/static/js/workspace/review_actions.js"
     ></script>
 
     <script

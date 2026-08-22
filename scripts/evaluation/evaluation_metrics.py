@@ -62,24 +62,80 @@ IDENTIFIER_FIELDS = {
 }
 
 
+# ==========================================================
+# CRITICAL FIELDS
+# ==========================================================
+#
+# SOURCED FROM THE PRODUCTION VALIDATOR, NOT RESTATED HERE.
+#
+# PHASE 10.5 found these two definitions had diverged. This
+# file used to carry its own list, which omitted `issuer` from
+# guard_license and sia_badge. DocumentAnomalyValidator treats
+# issuer as critical: a missing or untrusted one raises an
+# ERROR and sends the document to human review.
+#
+# The effect was that headline critical-field accuracy was
+# computed over 168 fields while production considered 210
+# critical -- and one real critical-field error, guard_020
+# reading its issuer as "ISSUED BY TX DPS" instead of
+# "TX DPS", was invisible in that metric.
+#
+# A definitional gap is exactly how a critical regression
+# hides inside a healthy-looking average.
+#
+# Importing means they cannot drift again, and the evaluation
+# now measures what the product actually treats as critical.
+# test_phase10_confidence_calibration asserts they agree.
+#
+#
+# WHAT THIS CHANGES IN THE REPORTED NUMBERS
+# ----------------------------------------------------------
+# On the SAME predictions, critical-field normalised accuracy
+# goes from 99.40% (167/168) to 99.05% (208/210).
+#
+# Nothing got worse. A denominator that was too narrow was
+# replaced by the correct one, and an error that was already
+# happening is now counted. The Phase 12 comparison should
+# read 99.05% as the corrected baseline rather than as a
+# regression against 99.40%.
+# ==========================================================
+
+import sys
+
+_PROJECT_ROOT = (
+    Path(
+        __file__
+    )
+    .resolve()
+    .parents[2]
+)
+
+if str(
+    _PROJECT_ROOT
+) not in sys.path:
+
+    sys.path.insert(
+        0,
+        str(
+            _PROJECT_ROOT
+        ),
+    )
+
+from backend.app.services.document_anomaly_validator import (  # noqa: E402
+    DocumentAnomalyValidator,
+)
+
+
 CRITICAL_FIELDS = {
-
-    "guard_license": [
-        "full_name",
-        "licence_number",
-        "expiry_date",
-    ],
-
-    "sia_badge": [
-        "full_name",
-        "licence_number",
-        "expiry_date",
-    ],
-
-    "id_card": [
-        "full_name",
-        "id_number",
-    ],
+    document_type: list(
+        fields
+    )
+    for document_type, fields in (
+        DocumentAnomalyValidator
+        .CRITICAL_FIELDS
+        .items()
+    )
+    if fields
 }
 
 

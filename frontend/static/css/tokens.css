@@ -143,6 +143,14 @@
     --state-rejected: #dc2626;
     --state-rejected-soft: #fef2f2;
 
+    /* PHASE 10.2. Neutral grey on purpose. An unsupported
+       file is not an error and not a warning -- nothing went
+       wrong, it simply is not one of the three document types.
+       Colouring it red would read as a fault the uploader
+       needs to fix. */
+    --state-unsupported: #4b5563;
+    --state-unsupported-soft: #f3f4f6;
+
 
     /* ======================================================
        CONFIDENCE
@@ -170,8 +178,31 @@
     /* ======================================================
        EXPIRY
        ------------------------------------------------------
-       Maps to date_validation.expiry.status: EXPIRED,
-       EXPIRING_SOON, VALID, plus an UNKNOWN fallback.
+       CORRECTED IN PHASE 8.15.
+
+       This comment used to name the statuses as EXPIRED,
+       EXPIRING_SOON, VALID and UNKNOWN. Two of those four do
+       not exist. DateLogicalValidator emits exactly five:
+
+           EXPIRED
+           EXPIRES_TODAY
+           EXPIRING_SOON
+           ACTIVE
+           NOT_AVAILABLE
+
+       The Phase 8.4 draft acted on the wrong list, which meant
+       a healthy document's badge could never match. The CSS
+       classes were fixed in Phase 8.6A; this note was missed,
+       and a stale comment is how the same mistake gets made
+       twice.
+
+       The token NAMES below are deliberately unchanged, because
+       they are referenced by existing rules. They map:
+
+           --expiry-expired    EXPIRED and EXPIRES_TODAY
+           --expiry-soon       EXPIRING_SOON
+           --expiry-valid      ACTIVE
+           --expiry-unknown    NOT_AVAILABLE
        ====================================================== */
 
     --expiry-expired: #dc2626;

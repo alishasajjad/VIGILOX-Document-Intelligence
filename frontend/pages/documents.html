@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        Documents · VIGILOX
+    </title>
+
+    <link
+        rel="icon"
+        type="image/svg+xml"
+        href="/review/static/favicon.svg"
+    />
+
+    <link
+        rel="alternate icon"
+        type="image/x-icon"
+        href="/review/static/favicon.ico"
+    />
+
+    <link
+        rel="apple-touch-icon"
+        href="/review/static/apple-touch-icon.png"
+    />
+
+    <link
+        rel="stylesheet"
+        href="/review/static/css/tokens.css"
+    >
+
+    <link
+        rel="stylesheet"
+        href="/review/static/css/base.css"
+    >
+
+    <link
+        rel="stylesheet"
+        href="/review/static/css/layout.css"
+    >
+
+    <link
+        rel="stylesheet"
+        href="/review/static/css/components.css"
+    >
+
+    <link
+        rel="stylesheet"
+        href="/review/static/css/responsive.css"
+    >
+
+</head>
+
+
+<body>
+
+    <a class="skip-link" href="#main-content">
+        Skip to main content
+    </a>
+
+
+    <div class="app-shell">
+
+        <!-- ============================================= -->
+        <!-- SIDEBAR -->
+        <!-- ============================================= -->
+
+        <aside class="sidebar">
+
+            <div class="brand">
+
+                <div class="brand-mark" aria-hidden="true">
+                    V
+                </div>
+
+                <div>
+
+                    <div class="brand-name">
+                        VIGILOX
+                    </div>
+
+                    <div class="brand-subtitle">
+                        Document Intelligence
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <nav
+                class="navigation"
+                aria-label="Primary"
+            >
+
+                <p class="nav-section-label">
+                    Workspace
+                </p>
+
+                <a
+                    href="/dashboard"
+                    class="nav-item"
+                    data-nav-match="exact"
+                    data-nav-prefix="/dashboard"
+                >
+                    <span class="nav-item-label">Dashboard</span>
+                </a>
+
+                <a
+                    href="/upload"
+                    class="nav-item"
+                    data-nav-match="exact"
+                    data-nav-prefix="/upload"
+                >
+                    <span class="nav-item-label">Upload Document</span>
+                </a>
+
+                <a
+                    href="/documents"
+                    class="nav-item"
+                    data-nav-match="prefix"
+                    data-nav-prefix="/documents"
+                    aria-current="page"
+                >
+                    <span class="nav-item-label">Documents</span>
+                </a>
+
+                <a
+                    href="/review"
+                    class="nav-item"
+                    data-nav-match="prefix"
+                    data-nav-prefix="/review"
+                >
+                    <span class="nav-item-label">Review Queue</span>
+                </a>
+
+            </nav>
+
+
+            <div class="sidebar-footer">
+
+                <!-- ===================================== -->
+                <!-- REVIEWER IDENTITY                     -->
+                <!-- ===================================== -->
+                <!--
+                    Resolved by the server from
+                    GET /api/v1/reviewer/me.
+
+                    Read-only by design. There is no input
+                    here and the browser cannot choose or
+                    influence who the reviewer is.
+                -->
+
+                <div class="shell-reviewer">
+
+                    <div
+                        id="shell-reviewer-avatar"
+                        class="shell-reviewer-avatar"
+                        aria-hidden="true"
+                    >
+                        &hellip;
+                    </div>
+
+                    <div class="shell-reviewer-body">
+
+                        <div
+                            id="shell-reviewer-name"
+                            class="shell-reviewer-name"
+                        >
+                            Loading reviewer
+                        </div>
+
+                        <div class="shell-reviewer-meta">
+
+                            <span
+                                id="shell-reviewer-role"
+                                class="shell-reviewer-role"
+                            ></span>
+
+                            <span
+                                id="shell-reviewer-access"
+                                class="shell-reviewer-access"
+                            ></span>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <div class="system-status">
+
+                    <span
+                        id="status-indicator"
+                        class="status-dot"
+                        aria-hidden="true"
+                    ></span>
+
+                    <span
+                        id="status-text"
+                        role="status"
+                    >
+                        Checking API
+                    </span>
+
+                </div>
+
+            </div>
+
+        </aside>
+
+
+        <!-- ============================================= -->
+        <!-- MAIN -->
+        <!-- ============================================= -->
+
+        <main
+            id="main-content"
+            class="main-content"
+        >
+
+            <header class="page-header">
+
+                <div>
+
+                    <p class="eyebrow">
+                        DOCUMENT LIBRARY
+                    </p>
+
+                    <h1>
+                        Documents
+                    </h1>
+
+                    <p class="page-description">
+                        Every document VIGILOX has processed,
+                        with its machine decision, review state
+                        and validity. Document contents stay on
+                        the document page.
+                    </p>
+
+                </div>
+
+
+                <div class="header-actions">
+
+                    <a
+                        href="/upload"
+                        class="btn btn-primary"
+                    >
+                        Upload Document
+                    </a>
+
+                </div>
+
+            </header>
+
+
+            <!-- ========================================= -->
+            <!-- FILTER TOOLBAR -->
+            <!-- ========================================= -->
+            <!--
+                Every control here maps to a query parameter
+                the API already validates. There is no
+                frontend-only filter, so what the screen shows
+                is always what the server selected.
+
+                Search covers filename and document id only.
+                Document contents are deliberately not
+                searchable.
+            -->
+
+            <form
+                id="filter-form"
+                class="toolbar"
+                role="search"
+                aria-label="Filter documents"
+            >
+
+                <div class="field toolbar-search">
+
+                    <label
+                        class="field-label"
+                        for="search-input"
+                    >
+                        Search
+                    </label>
+
+                    <div class="input-with-action">
+
+                        <input
+                            type="search"
+                            id="search-input"
+                            class="input"
+                            name="search"
+                            placeholder="Filename or document ID"
+                            autocomplete="off"
+                            maxlength="200"
+                            aria-describedby="search-hint"
+                        >
+
+                        <button
+                            type="button"
+                            id="clear-search-button"
+                            class="btn btn-ghost btn-sm"
+                        >
+                            Clear
+                        </button>
+
+                    </div>
+
+                    <p
+                        id="search-hint"
+                        class="field-hint"
+                    >
+                        Matches the filename or document ID.
+                        Document contents are not searched.
+                    </p>
+
+                </div>
+
+
+                <div class="field">
+
+                    <label
+                        class="field-label"
+                        for="document-type-filter"
+                    >
+                        Document type
+                    </label>
+
+                    <select
+                        id="document-type-filter"
+                        class="select"
+                    >
+                        <option value="">All types</option>
+                        <option value="guard_license">Guard Licence</option>
+                        <option value="sia_badge">SIA Badge</option>
+                        <option value="id_card">ID Card</option>
+                    </select>
+
+                </div>
+
+
+                <div class="field">
+
+                    <label
+                        class="field-label"
+                        for="final-state-filter"
+                    >
+                        Final state
+                    </label>
+
+                    <select
+                        id="final-state-filter"
+                        class="select"
+                    >
+                        <option value="">All states</option>
+                        <option value="AUTO_ACCEPTED">Auto Accepted</option>
+                        <option value="PENDING_REVIEW">Pending Review</option>
+                        <option value="UNSUPPORTED">Unsupported</option>
+                        <option value="APPROVED">Approved</option>
+                        <option value="CORRECTED">Corrected</option>
+                        <option value="REJECTED">Rejected</option>
+                    </select>
+
+                </div>
+
+
+                <div class="field">
+
+                    <label
+                        class="field-label"
+                        for="machine-decision-filter"
+                    >
+                        Machine decision
+                    </label>
+
+                    <select
+                        id="machine-decision-filter"
+                        class="select"
+                    >
+                        <option value="">All decisions</option>
+                        <option value="AUTO_ACCEPT">Auto Accept</option>
+                        <option value="REVIEW_REQUIRED">Review Required</option>
+                        <option value="UNSUPPORTED_DOCUMENT">Unsupported Document</option>
+                    </select>
+
+                </div>
+
+
+                <div class="field">
+
+                    <label
+                        class="field-label"
+                        for="expiry-status-filter"
+                    >
+                        Expiry
+                    </label>
+
+                    <select
+                        id="expiry-status-filter"
+                        class="select"
+                    >
+                        <option value="">All</option>
+                        <option value="EXPIRED">Expired</option>
+                        <option value="EXPIRES_TODAY">Expires Today</option>
+                        <option value="EXPIRING_SOON">Expiring Soon</option>
+                        <option value="ACTIVE">Active</option>
+                        <option value="NOT_AVAILABLE">No Expiry Date</option>
+                    </select>
+
+                </div>
+
+
+                <div class="field">
+
+                    <label
+                        class="field-label"
+                        for="page-size-select"
+                    >
+                        Per page
+                    </label>
+
+                    <select
+                        id="page-size-select"
+                        class="select"
+                    >
+                        <option value="10">10</option>
+                        <option value="25" selected>25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+
+                </div>
+
+
+                <div class="toolbar-actions">
+
+                    <button
+                        type="button"
+                        id="reset-filters-button"
+                        class="btn btn-secondary"
+                    >
+                        Reset
+                    </button>
+
+                </div>
+
+            </form>
+
+
+            <!-- ========================================= -->
+            <!-- RESULT SUMMARY -->
+            <!-- ========================================= -->
+            <!--
+                aria-live, so a screen-reader user hears the
+                new result count after changing a filter.
+            -->
+
+            <p
+                id="documents-status"
+                class="result-summary"
+                role="status"
+                aria-live="polite"
+            ></p>
+
+
+            <section
+                class="card"
+                aria-labelledby="documents-title"
+            >
+
+                <div class="card-head">
+
+                    <h2
+                        id="documents-title"
+                        class="card-title"
+                    >
+                        Processed documents
+                    </h2>
+
+                </div>
+
+
+                <div class="card-body card-body-flush">
+
+                    <!-- ================================= -->
+                    <!-- LOADING -->
+                    <!-- ================================= -->
+
+                    <div
+                        id="documents-loading"
+                        role="status"
+                    ></div>
+
+
+                    <!-- ================================= -->
+                    <!-- ERROR -->
+                    <!-- ================================= -->
+
+                    <div
+                        id="documents-error"
+                        role="alert"
+                        hidden
+                    ></div>
+
+
+                    <!-- ================================= -->
+                    <!-- EMPTY -->
+                    <!-- ================================= -->
+
+                    <div
+                        id="documents-empty"
+                        role="status"
+                        hidden
+                    ></div>
+
+
+                    <!-- ================================= -->
+                    <!-- TABLE -->
+                    <!-- ================================= -->
+
+                    <div
+                        id="documents-table"
+                        hidden
+                    ></div>
+
+                </div>
+
+
+                <div class="card-foot">
+
+                    <nav
+                        id="documents-pagination"
+                        aria-label="Document pages"
+                    ></nav>
+
+                </div>
+
+            </section>
+
+        </main>
+
+    </div>
+
+
+    <script
+        src="/review/static/js/api.js"
+    ></script>
+
+    <script
+        src="/review/static/js/common.js"
+    ></script>
+
+    <script
+        src="/review/static/js/documents_page.js"
+    ></script>
+
+</body>
+
+</html>

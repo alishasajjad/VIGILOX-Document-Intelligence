@@ -1,0 +1,197 @@
+{
+  "source": "evaluation\\results\\field_results.csv",
+  "field_rows": 441,
+  "scored_rows": 322,
+  "unscored_rows": 119,
+  "distribution": {
+    "min": 0.944983720779419,
+    "median": 0.9999037981033325,
+    "max": 0.9999990463256836
+  },
+  "overall": {
+    "fields": 441,
+    "correct": 435,
+    "incorrect": 6,
+    "normalized_accuracy_percent": 98.64,
+    "critical_fields": 210,
+    "critical_correct": 208,
+    "critical_incorrect": 2,
+    "critical_accuracy_percent": 99.05
+  },
+  "by_status": {
+    "INVALID_EVIDENCE": {
+      "fields": 10,
+      "correct": 9,
+      "incorrect": 1,
+      "normalized_accuracy_percent": 90.0,
+      "critical_fields": 0,
+      "critical_correct": 0,
+      "critical_incorrect": 0,
+      "critical_accuracy_percent": null
+    },
+    "NOT_EXTRACTED": {
+      "fields": 109,
+      "correct": 108,
+      "incorrect": 1,
+      "normalized_accuracy_percent": 99.08,
+      "critical_fields": 0,
+      "critical_correct": 0,
+      "critical_incorrect": 0,
+      "critical_accuracy_percent": null
+    },
+    "VALID": {
+      "fields": 322,
+      "correct": 318,
+      "incorrect": 4,
+      "normalized_accuracy_percent": 98.76,
+      "critical_fields": 210,
+      "critical_correct": 208,
+      "critical_incorrect": 2,
+      "critical_accuracy_percent": 99.05
+    }
+  },
+  "quantile_buckets": [
+    {
+      "fields": 64,
+      "correct": 64,
+      "incorrect": 0,
+      "normalized_accuracy_percent": 100.0,
+      "critical_fields": 57,
+      "critical_correct": 57,
+      "critical_incorrect": 0,
+      "critical_accuracy_percent": 100.0,
+      "bucket": "q1",
+      "confidence_min": 0.944983720779419,
+      "confidence_max": 0.9966040253639221
+    },
+    {
+      "fields": 64,
+      "correct": 63,
+      "incorrect": 1,
+      "normalized_accuracy_percent": 98.44,
+      "critical_fields": 49,
+      "critical_correct": 48,
+      "critical_incorrect": 1,
+      "critical_accuracy_percent": 97.96,
+      "bucket": "q2",
+      "confidence_min": 0.9972299337387085,
+      "confidence_max": 0.9996265172958374
+    },
+    {
+      "fields": 65,
+      "correct": 64,
+      "incorrect": 1,
+      "normalized_accuracy_percent": 98.46,
+      "critical_fields": 27,
+      "critical_correct": 27,
+      "critical_incorrect": 0,
+      "critical_accuracy_percent": 100.0,
+      "bucket": "q3",
+      "confidence_min": 0.9996832013130188,
+      "confidence_max": 0.9999355673789978
+    },
+    {
+      "fields": 64,
+      "correct": 63,
+      "incorrect": 1,
+      "normalized_accuracy_percent": 98.44,
+      "critical_fields": 25,
+      "critical_correct": 25,
+      "critical_incorrect": 0,
+      "critical_accuracy_percent": 100.0,
+      "bucket": "q4",
+      "confidence_min": 0.9999374747276306,
+      "confidence_max": 0.999974250793457
+    },
+    {
+      "fields": 65,
+      "correct": 64,
+      "incorrect": 1,
+      "normalized_accuracy_percent": 98.46,
+      "critical_fields": 52,
+      "critical_correct": 51,
+      "critical_incorrect": 1,
+      "critical_accuracy_percent": 98.08,
+      "bucket": "q5",
+      "confidence_min": 0.999974250793457,
+      "confidence_max": 0.9999990463256836
+    }
+  ],
+  "discrimination": {
+    "auc": 0.3616,
+    "pairs": 1272,
+    "correct_count": 318,
+    "incorrect_count": 4,
+    "mean_confidence_correct": 0.997323,
+    "mean_confidence_incorrect": 0.999606
+  },
+  "errors": [
+    {
+      "sample_id": "id_001",
+      "document_type": "id_card",
+      "field_name": "date_of_birth",
+      "critical": false,
+      "confidence_status": "INVALID_EVIDENCE",
+      "confidence": null,
+      "confidence_percentile": null,
+      "ground_truth": "",
+      "prediction": "2006-08-23"
+    },
+    {
+      "sample_id": "guard_004",
+      "document_type": "guard_license",
+      "field_name": "expiry_date",
+      "critical": true,
+      "confidence_status": "VALID",
+      "confidence": 0.9999911189079285,
+      "confidence_percentile": 91.9,
+      "ground_truth": "2025-06-10",
+      "prediction": "2025-10-06"
+    },
+    {
+      "sample_id": "guard_004",
+      "document_type": "guard_license",
+      "field_name": "date_of_birth",
+      "critical": false,
+      "confidence_status": "VALID",
+      "confidence": 0.999974250793457,
+      "confidence_percentile": 76.7,
+      "ground_truth": "1973-11-04",
+      "prediction": "1973-04-11"
+    },
+    {
+      "sample_id": "guard_004",
+      "document_type": "guard_license",
+      "field_name": "issue_date",
+      "critical": false,
+      "confidence_status": "VALID",
+      "confidence": 0.9999037981033325,
+      "confidence_percentile": 48.4,
+      "ground_truth": "2024-06-10",
+      "prediction": "2024-10-06"
+    },
+    {
+      "sample_id": "guard_020",
+      "document_type": "guard_license",
+      "field_name": "issuer",
+      "critical": true,
+      "confidence_status": "VALID",
+      "confidence": 0.998554527759552,
+      "confidence_percentile": 26.4,
+      "ground_truth": "TX DPS",
+      "prediction": "ISSUED BY TX DPS"
+    },
+    {
+      "sample_id": "id_019",
+      "document_type": "id_card",
+      "field_name": "issuer",
+      "critical": false,
+      "confidence_status": "NOT_EXTRACTED",
+      "confidence": null,
+      "confidence_percentile": null,
+      "ground_truth": "NATIONAL POPULATION REGISTRY",
+      "prediction": ""
+    }
+  ],
+  "verdict": "NOT_A_PROBABILITY_OF_CORRECTNESS"
+}

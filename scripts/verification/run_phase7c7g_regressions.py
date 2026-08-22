@@ -171,6 +171,12 @@ STORAGE_REGRESSIONS = (
     "tests/storage/test_phase7c_failed_processing_cleanup.py",
     "tests/storage/test_phase7c_storage_integrity_detection.py",
     "tests/storage/test_phase7c_storage_reconciliation.py",
+
+    # 12.18. The release-blocker invariant: a NEW completed
+    # document must serve its original uploaded bytes. Real
+    # API, real worker, real storage, real database -- and an
+    # injected pipeline, so it costs no provider quota.
+    "tests/storage/test_phase12_managed_source_roundtrip.py",
     "tests/storage/test_phase7b_document_storage.py",
     "tests/integration/test_phase7b_persistence_storage_integration.py",
 )
@@ -187,6 +193,125 @@ API_AND_DASHBOARD_REGRESSIONS = (
         "tests/dashboard/"
         "test_phase8_shell_and_design_system.py"
     ),
+    (
+        "tests/api/"
+        "test_phase8_documents_and_dashboard_api.py"
+    ),
+    (
+        "tests/dashboard/"
+        "test_phase8_upload_experience.py"
+    ),
+    (
+        "tests/dashboard/"
+        "test_phase8_dashboard_ui.py"
+    ),
+    (
+        "tests/dashboard/"
+        "test_phase8_documents_ui.py"
+    ),
+    (
+        "tests/dashboard/"
+        "test_phase8_review_queue.py"
+    ),
+    (
+        "tests/dashboard/"
+        "test_phase8_document_workspace.py"
+    ),
+    (
+        "tests/dashboard/"
+        "test_phase8_frontend_audit.py"
+    ),
+    (
+        "tests/dashboard/"
+        "test_phase8_visual_state.py"
+    ),
+    (
+        "tests/dashboard/"
+        "test_phase9_batch_upload.py"
+    ),
+)
+
+
+# ==========================================================
+# ASYNC JOB QUEUE REGRESSIONS
+# PHASE 9
+# ==========================================================
+#
+# Deterministic. The pipeline and the persistence service are
+# injected fakes, so every failure path -- rate limit, lease
+# expiry, stale replay -- is reachable in milliseconds and
+# costs no provider quota. Real PostgreSQL is used on purpose:
+# the claim guarantee is FOR UPDATE SKIP LOCKED, and mocking
+# that would test the mock.
+# ==========================================================
+
+# ==========================================================
+# ADVANCED INTELLIGENCE REGRESSIONS
+# PHASE 10
+# ==========================================================
+#
+# Deterministic. Image degradations are generated from the real
+# benchmark documents at run time, so there are no extra
+# fixtures and no provider calls.
+# ==========================================================
+
+INTELLIGENCE_REGRESSIONS = (
+    "tests/intelligence/test_phase10_image_quality.py",
+    "tests/intelligence/test_phase10_unsupported_documents.py",
+    "tests/intelligence/test_phase10_duplicate_sources.py",
+    "tests/intelligence/test_phase10_extraction_resilience.py",
+    "tests/intelligence/test_phase10_confidence_calibration.py",
+    "tests/intelligence/test_phase10_finding_normalization.py",
+)
+
+
+# ==========================================================
+# DEPLOYMENT AND PRODUCTION CONFIGURATION
+# PHASE 11
+# ==========================================================
+#
+# These assert how the application is CONFIGURED rather than
+# what it computes: request concurrency against connection
+# pool size, tunables surviving a bad value, and .env.example
+# still describing the code it documents.
+#
+# They belong in the gate because a configuration defect does
+# not show up in a functional test. The pool being 15 while
+# the server admitted 40 broke nothing until there were 16
+# concurrent requests.
+# ==========================================================
+
+DEPLOYMENT_REGRESSIONS = (
+    "tests/deployment/test_phase11_production_configuration.py",
+    "tests/deployment/test_phase11_migrations.py",
+    "tests/deployment/test_phase11_route_and_domain_contracts.py",
+    "tests/deployment/test_phase11_security_boundary.py",
+    "tests/deployment/test_phase11_containerization.py",
+    "tests/deployment/test_phase11_observability.py",
+    "tests/deployment/test_phase11_branding.py",
+
+    # 11.12 and 11.13 start real processes and signal them,
+    # and 11.12 creates and drops a throwaway database. Both
+    # are slower than the rest of this group; both are also
+    # the only evidence that a backup can be restored from
+    # and that a shutdown does not lose work, so neither is
+    # optional.
+    "tests/deployment/test_phase11_backup_restore.py",
+    "tests/deployment/test_phase11_graceful_shutdown.py",
+    "tests/deployment/test_phase11_deployment_documentation.py",
+
+    # 12.6. Asserts that every test file on disk is run
+    # by something. MISSING cannot see an unregistered
+    # file, and that blind spot has hidden unrun suites
+    # twice now.
+    "tests/deployment/test_phase12_test_coverage.py",
+)
+
+
+JOB_QUEUE_REGRESSIONS = (
+    "tests/jobs/test_phase9_job_worker.py",
+    "tests/jobs/test_phase9_concurrency_load.py",
+    "tests/jobs/test_phase9_performance_contract.py",
 )
 
 
@@ -199,6 +324,26 @@ END_TO_END_REGRESSIONS = (
 REAL_DEPENDENCY_TESTS = (
     "tests/real_dependencies/test_real_pipeline_persistence.py",
     "tests/real_dependencies/test_phase7c_real_provenance_e2e.py",
+
+    # PHASE 12.6. These four existed and were maintained --
+    # Phase 8.1 and 8.2 moved them onto safe synthetic
+    # fixtures -- but no runner executed them, so they had
+    # not run in either gate.
+    #
+    # MISSING could not see it. MISSING means "a registered
+    # file that is not on disk"; the reverse, a file on disk
+    # that nothing registers, is invisible to it. That is the
+    # same gap Phase 8.1 found when 19 of 49 test files
+    # turned out to be unguarded, and it reappeared because
+    # nothing asserts the inverse.
+    #
+    # tests/deployment/test_phase12_test_coverage.py now
+    # asserts it, so the next unregistered file fails a gate
+    # instead of quietly not running.
+    "tests/real_dependencies/test_ocr.py",
+    "tests/real_dependencies/test_preprocessing.py",
+    "tests/real_dependencies/test_extraction.py",
+    "tests/real_dependencies/test_pipeline_service.py",
 )
 
 
@@ -264,6 +409,21 @@ TEST_GROUPS = (
     (
         "API / DASHBOARD REGRESSIONS",
         API_AND_DASHBOARD_REGRESSIONS,
+    ),
+
+    (
+        "ASYNC JOB QUEUE REGRESSIONS",
+        JOB_QUEUE_REGRESSIONS,
+    ),
+
+    (
+        "ADVANCED INTELLIGENCE REGRESSIONS",
+        INTELLIGENCE_REGRESSIONS,
+    ),
+
+    (
+        "DEPLOYMENT / PRODUCTION CONFIGURATION",
+        DEPLOYMENT_REGRESSIONS,
     ),
 
     (

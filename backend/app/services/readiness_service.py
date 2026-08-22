@@ -127,8 +127,25 @@ REASON_CHECK_FAILED = (
 #
 # These are populated by the FastAPI lifespan handler.
 #
-# "pipeline" transitively represents OCR and LLM client
-# initialization without performing any inference.
+# "pipeline" is a LazyPipeline holder, and what its presence
+# proves changed in Phase 9.5.
+#
+# It used to be the constructed DocumentPipelineService, so its
+# presence transitively meant the OCR models had loaded. Now
+# the API builds them on first use of the synchronous analyze
+# route, because in the async architecture the API never runs
+# OCR -- the worker does -- and loading the models cost 1.7
+# seconds of startup and a few hundred megabytes in every API
+# replica for a compatibility endpoint.
+#
+# So this check now means "the holder is wired up", which is
+# the honest claim. Whether the models are loaded is reported
+# separately by pipeline_loaded below and is deliberately NOT
+# required: an API that has not yet needed a pipeline is ready
+# to do everything it is for.
+#
+# OCR readiness belongs to the worker process, which cannot
+# start without it.
 # ==========================================================
 
 REQUIRED_APPLICATION_SERVICES = (
@@ -405,7 +422,30 @@ def check_application_services(
             )
 
 
-    return ok_result()
+    result = ok_result()
+
+    # PHASE 9.5. Reported, never required. An operator
+    # debugging a slow first analyze call needs to know
+    # whether the models are loaded yet; readiness does not
+    # need to wait for them.
+    pipeline = (
+        getattr(
+            app_state,
+            "pipeline",
+            None,
+        )
+    )
+
+    if pipeline is not None and hasattr(
+        pipeline,
+        "is_loaded",
+    ):
+        result["pipeline_loaded"] = (
+            pipeline.is_loaded
+        )
+
+
+    return result
 
 
 # ==========================================================

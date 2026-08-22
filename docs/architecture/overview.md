@@ -13,7 +13,9 @@ backend/app/api/           error contract, upload validation, request IDs
 backend/app/services/      OCR, extraction, validation, review, storage,
                            persistence, queries
 backend/app/core/          logging, path anchors      (cross-cutting)
-backend/app/domain/        extraction schemas         (cross-cutting)
+backend/app/domain/        extraction schemas, job states,
+                           classification, duplicates,
+                           finding normalization      (cross-cutting)
     ↓
 database/                  SQLAlchemy engine, ORM models, repositories
 ```
@@ -25,26 +27,51 @@ Rules that hold today, verified programmatically:
   error codes.
 - `frontend/` never imports Python. It is served by FastAPI as static
   files and pages, and consumes the JSON API.
-- `database/` imports **nothing** from `backend/`. It owns the SQLAlchemy
-  engine, ORM models, repositories and DB-level exceptions, and nothing
-  else.
+- `database/` owns the SQLAlchemy engine, ORM models, repositories and
+  DB-level exceptions, and nothing else. It imports from `backend/` in
+  exactly two places, both of them `backend/app/domain/job_states`:
+
+  ```text
+  database/models.py            -> backend.app.domain.job_states
+  database/job_repositories.py  -> backend.app.domain.job_states
+  ```
+
+  This is the cross-cutting exemption below, not an inversion.
+  `ACTIVE_STATUSES` defines which job statuses count as active, and the
+  partial unique index in `models.py` is generated from it so that the
+  index, the queries and the tests cannot disagree about what "active"
+  means. Restating the tuple in `database/` to satisfy the rule would
+  buy a cleaner diagram at the price of two definitions of a value the
+  database enforces. See Phase 10.3.
 - No layer skips. The API layer reaches the database only through a
   service.
 
 The actual import graph, measured across `backend/` and `database/`:
 
 ```text
-backend/app/services  -> database                11
-backend/app/main.py   -> backend/app/services     7
-backend/app/services  -> backend/app/domain       5
-backend/app/main.py   -> backend/app/api          4
-backend/app/services  -> backend/app/core         3
+backend/app/services  -> database                18
+backend/app/services  -> backend/app/domain      15
+backend/app/main.py   -> backend/app/services    10
+backend/app/services  -> backend/app/core         7
+backend/app/main.py   -> backend/app/api          5
+backend/app/api       -> backend/app/core         2
 backend/app/main.py   -> backend/app/core         2
-backend/app/api       -> backend/app/core         1
+database              -> backend/app/domain       2
+backend/app/api       -> backend/app/services     1
+backend/app/main.py   -> backend/app/domain       1
+backend/app/main.py   -> database                 1
 ```
 
-Zero inversions, zero skips. `core/` (logging, paths) and `domain/`
-(schemas) are cross-cutting and may be imported from any layer.
+Zero inversions, zero skips. `core/` (logging, paths) and `domain/` are
+cross-cutting and may be imported from any layer, which is what the two
+`database -> backend/app/domain` edges are.
+
+`domain/` is where a rule lives when it belongs to the product rather
+than to a service: the extraction schema, the job state machine, what
+counts as a supported document, what counts as the same source bytes,
+and how findings are presented. Nothing in it touches the database,
+performs I/O, or decides anything a service has already decided -- the
+Phase 10.6 suite asserts that for `findings.py` by reading its AST.
 
 ### How this was reached
 
@@ -205,3 +232,90 @@ availability/writability/safety, and required service initialization. It
 never runs OCR or LLM inference. Failures return 503 with a stable reason
 code and the exception class name only — never `str(exc)`, because
 SQLAlchemy connection errors embed the database password.
+
+## Deployed topology
+
+The runtime picture, as distinct from the code layering above. Five
+containers from **one image** — the API, the worker and the migration
+step run different commands against the same build, so their dependencies
+and their code cannot drift apart.
+
+```
+                          internet
+                              │
+                              ▼
+                    ┌───────────────────┐
+                    │  proxy  (nginx)   │  the only published port
+                    │  :80 / :443       │  strips identity headers
+                    └─────────┬─────────┘  injects authoritative ones
+                              │            rate-limits by route cost
+                              │            denies /docs /metrics
+                  network: edge│
+                              ▼
+                    ┌───────────────────┐
+                    │  api  (uvicorn)   │  no published port
+                    │  lazy OCR         │  serves UI + JSON
+                    └─────────┬─────────┘
+                              │
+              network: internal
+                    ┌─────────┴──────────┬──────────────┐
+                    ▼                    ▼              ▼
+          ┌──────────────────┐  ┌────────────────┐  ┌──────────────┐
+          │ postgres :5432   │  │ managed        │  │ pending      │
+          │ rows AND the     │  │ documents      │  │ uploads      │
+          │ durable queue    │  │ volume         │  │ volume       │
+          └────────┬─────────┘  └────────────────┘  └──────────────┘
+                   │                    ▲                  ▲
+                   │  FOR UPDATE        │                  │
+                   │  SKIP LOCKED       │                  │
+                   ▼                    │                  │
+          ┌──────────────────┐          │                  │
+          │ worker           ├──────────┴──────────────────┘
+          │ eager OCR        │
+          │ no ports at all  │───────────► Groq  (outbound only)
+          └──────────────────┘
+                   │
+                   └── migrate: same image, `alembic upgrade head`, exits
+```
+
+### Why each edge is shaped that way
+
+**The api publishes no port.** With one, everything the proxy does —
+stripping identity headers, rate limiting, denying `/docs` — is
+bypassable by connecting directly.
+
+**The queue is PostgreSQL, not Redis.** A job row and the document row it
+produces commit in the same transaction. A separate broker cannot give
+you that, and the price of adding one is a second thing to run, back up
+and reason about.
+
+**Two storage volumes, never one.** A pending file has no document row by
+definition, so under the managed root the integrity scan classes it as an
+orphan — and orphans are the one category reconciliation deletes
+automatically. The application refuses to start if the pending root is
+nested inside the managed one.
+
+**The worker accepts nothing.** It makes outbound calls to the extraction
+provider and takes no inbound connections, so it needs no ingress path at
+all.
+
+**OCR loading is opposite in the two roles.** The API is lazy (measured
+3 ms of startup) because it never runs OCR except through the legacy
+synchronous route; the worker is eager (2929 ms) because the model *is*
+the job, and eager means a broken model install fails the container start
+where a deploy can see it rather than failing the first document.
+
+Consequence, stated because it is easy to assume otherwise: with the API
+lazy, `/health/ready` passing does **not** mean OCR models are loaded in
+that process.
+
+### Where each concern is answered
+
+| | |
+|---|---|
+| Configuration and commands | [../deployment/deployment.md](../deployment/deployment.md) |
+| Day-to-day operations | [../operations/production-runbook.md](../operations/production-runbook.md) |
+| Alerting | [../operations/monitoring.md](../operations/monitoring.md) |
+| Backup and restore | [../operations/backup-restore.md](../operations/backup-restore.md) |
+| Shutdown and recovery | [../operations/shutdown.md](../operations/shutdown.md) |
+| Security posture | [../security/security.md](../security/security.md) |

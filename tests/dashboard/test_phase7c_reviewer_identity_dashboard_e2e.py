@@ -1,5 +1,7 @@
 import tempfile
 
+import re
+
 from pathlib import Path
 
 from fastapi.testclient import (
@@ -742,16 +744,39 @@ def main():
             )
 
 
+            # ==============================================
+            # UPDATED IN PHASE 8.10
+            # ==============================================
+            #
+            # Two of the old requirements moved:
+            #
+            #   the "/api/v1/reviewer/me" literal now lives once
+            #   in the shared API client, which is the point of
+            #   having a shared client
+            #
+            #   the authenticatedReviewer* variables were four
+            #   module-level getElementById results; the rebuilt
+            #   controller holds them on one nodes object
+            #
+            # The trust boundary those names protected is what
+            # matters, so it is asserted directly instead: the
+            # page must display a SERVER-RESOLVED reviewer with
+            # role, source and access, and must offer no way for
+            # the browser to state who the reviewer is.
+            # ==============================================
+
             required_js_features = [
-                '"/api/v1/reviewer/me"',
                 "loadReviewerIdentity",
                 "renderReviewerIdentity",
                 "loadedReviewerIdentity",
                 "can_review",
-                "authenticatedReviewerName",
-                "authenticatedReviewerRole",
-                "authenticatedReviewerSource",
-                "authenticatedReviewerAccess",
+
+                # The four read-only identity targets, named by
+                # the ids the page actually declares.
+                "authenticated-reviewer-name",
+                "authenticated-reviewer-role",
+                "authenticated-reviewer-source",
+                "authenticated-reviewer-access",
             ]
 
 
@@ -765,6 +790,104 @@ def main():
                         f"missing feature: {feature}"
                     ),
                 )
+
+
+            # ==============================================
+            # THE IDENTITY ENDPOINT HAS ONE OWNER
+            # ==============================================
+
+            api_client = client.get(
+                "/review/static/js/api.js"
+            )
+
+
+            assert_equal(
+                api_client.status_code,
+                200,
+                (
+                    "The shared API client should "
+                    "return HTTP 200."
+                ),
+            )
+
+
+            assert_true(
+                '"/api/v1/reviewer/me"'
+                in api_client.text,
+                (
+                    "The reviewer identity endpoint "
+                    "should be named in the shared "
+                    "API client."
+                ),
+            )
+
+
+            assert_true(
+                "getReviewerIdentity"
+                in detail_js,
+                (
+                    "The workspace should resolve "
+                    "identity through the shared "
+                    "client rather than building its "
+                    "own request."
+                ),
+            )
+
+
+            # ==============================================
+            # THE FOUR IDENTITY TARGETS ARE READ-ONLY
+            # ==============================================
+            #
+            # Each id must exist in the page, and none of them
+            # may be an input or any other editable control.
+            # ==============================================
+
+            for identity_id in (
+                "authenticated-reviewer-name",
+                "authenticated-reviewer-role",
+                "authenticated-reviewer-source",
+                "authenticated-reviewer-access",
+                "authenticated-reviewer-card",
+            ):
+
+                assert_true(
+                    f'id="{identity_id}"'
+                    in detail_html,
+                    (
+                        "The reviewer identity UI is "
+                        f"missing {identity_id}."
+                    ),
+                )
+
+
+                editable = (
+                    re.search(
+                        r"<(input|select|textarea)[^>]*id=\""
+                        + re.escape(
+                            identity_id
+                        )
+                        + r"\"",
+                        detail_html,
+                    )
+                )
+
+
+                assert_true(
+                    editable is None,
+                    (
+                        "Reviewer identity must be "
+                        "read-only. "
+                        f"{identity_id} is an "
+                        "editable control."
+                    ),
+                )
+
+
+            print(
+                "[PASS] Reviewer identity is "
+                "displayed read-only, with no "
+                "editable control"
+            )
 
 
             # --------------------------------------------------
@@ -794,6 +917,47 @@ def main():
             # --------------------------------------------------
             # Inspect the actual human-review payload object.
             # --------------------------------------------------
+
+            # ==============================================
+            # UPDATED IN PHASE 8.10
+            # ==============================================
+            #
+            # The review submission moved into
+            # js/workspace/review_actions.js. The assertion is
+            # unchanged in substance: the payload object must
+            # carry action and notes, and must NOT carry a
+            # reviewer id.
+            # ==============================================
+
+            review_actions_response = client.get(
+                "/review/static/js/workspace/review_actions.js"
+            )
+
+
+            assert_equal(
+                review_actions_response.status_code,
+                200,
+                (
+                    "review_actions.js should "
+                    "return HTTP 200."
+                ),
+            )
+
+
+            assert_true(
+                "/review/static/js/workspace/review_actions.js"
+                in detail_html,
+                (
+                    "The workspace page should load "
+                    "review_actions.js."
+                ),
+            )
+
+
+            detail_js = (
+                review_actions_response.text
+            )
+
 
             payload_start = (
                 detail_js.find(

@@ -95,10 +95,45 @@ from database.models import (  # noqa: E402
 #    integrity tooling.
 # ==========================================================
 
+# ==========================================================
+# WHAT THIS LIST CANNOT TELL APART
+# ==========================================================
+#
+# READ THIS BEFORE PASSING --delete.
+#
+# The first three entries are the filenames of the sample
+# documents. The test suites upload those samples, and so does
+# anybody trying the product for real -- the file they pick is
+# usually the same one, with the same name.
+#
+# So this heuristic CANNOT distinguish test residue from a
+# genuine upload of a file with the same name. During the
+# Phase 12 audit the report listed two real uploads as
+# deletion candidates alongside twenty-three genuine test
+# rows, and nothing in the row itself separated them.
+#
+# There is no marker to fix that with: the application does
+# not record "a test made this", and inventing one would put
+# test awareness into production code.
+#
+# The guard is therefore procedural rather than clever.
+# --delete now requires either
+#
+#     --id <document id> ...     delete exactly these
+#     --all-candidates           delete everything reported,
+#                                having read the list
+#
+# Report first, always. The list is the point of the tool; the
+# deletion is the easy part.
+# ==========================================================
+
 TEST_FILENAME_PATTERNS = (
+    # Also the real sample filenames. See above.
     "guard_license.jpg",
     "id_card.jpg",
     "sia_badge.jpg",
+
+    # These are unambiguous: nothing but a test creates them.
     "phase7a_",
     "phase7b",
     "phase7c",
@@ -106,6 +141,34 @@ TEST_FILENAME_PATTERNS = (
     "phase7c8_",
     "uploaded_document",
 )
+
+
+# Patterns that only a test produces. A candidate matching one
+# of these is safe to delete unattended; a candidate matching
+# only a sample filename is not.
+UNAMBIGUOUS_TEST_PATTERNS = (
+    "phase7a_",
+    "phase7b",
+    "phase7c",
+    "phase6c",
+    "phase7c8_",
+    "uploaded_document",
+)
+
+
+def is_unambiguously_test(
+    original_filename: str | None,
+) -> bool:
+
+    if not original_filename:
+        return False
+
+    name = original_filename.strip().lower()
+
+    return any(
+        pattern in name
+        for pattern in UNAMBIGUOUS_TEST_PATTERNS
+    )
 
 
 def looks_like_test_document(
@@ -321,6 +384,34 @@ def main() -> int:
 
 
     parser.add_argument(
+        "--id",
+        nargs="+",
+        default=None,
+        metavar="DOCUMENT_ID",
+        help=(
+            "Delete exactly these document ids, "
+            "and only if they appear in the "
+            "report. The safe way to use "
+            "--delete."
+        ),
+    )
+
+
+    parser.add_argument(
+        "--all-candidates",
+        action="store_true",
+        help=(
+            "Delete every reported candidate. "
+            "Required for an untargeted "
+            "--delete, because filename "
+            "matching cannot distinguish test "
+            "residue from a real upload of the "
+            "same name."
+        ),
+    )
+
+
+    parser.add_argument(
         "--include-reviewed",
         action="store_true",
         help=(
@@ -418,21 +509,127 @@ def main() -> int:
     # DELETE
     # ======================================================
 
+    # ------------------------------------------------------
+    # THE GUARD
+    # ------------------------------------------------------
+    #
+    # Ambiguous candidates are the ones matched only by a
+    # sample filename, which a real upload shares. They are
+    # named individually so the operator sees exactly what is
+    # at stake before choosing.
+
+    ambiguous = [
+        item
+        for item in candidates
+        if not is_unambiguously_test(
+            item.get(
+                "original_filename"
+            )
+        )
+    ]
+
+    if arguments.id:
+
+        wanted = set(
+            arguments.id
+        )
+
+        known = {
+            item["document_id"]
+            for item in candidates
+        }
+
+        unknown = sorted(
+            wanted - known
+        )
+
+        if unknown:
+
+            print()
+            print(
+                "REFUSING: these ids are not in the report "
+                "above:"
+            )
+
+            for value in unknown:
+                print(
+                    f"  {value}"
+                )
+
+            print()
+            print(
+                "Only a reported candidate can be deleted. "
+                "Re-run without --delete to see the list."
+            )
+            return 1
+
+        targets = sorted(
+            wanted
+        )
+
+    elif arguments.all_candidates:
+
+        targets = [
+            item["document_id"]
+            for item in candidates
+        ]
+
+    else:
+
+        print()
+        print(
+            "REFUSING: --delete needs to be told what to "
+            "delete."
+        )
+        print()
+        print(
+            "Filename matching cannot tell test residue from "
+            "a real upload of the same name. Three of the "
+            "patterns this tool matches -- guard_license.jpg, "
+            "id_card.jpg, sia_badge.jpg -- are the sample "
+            "filenames, and a person trying the product "
+            "uploads exactly those."
+        )
+
+        if ambiguous:
+
+            print()
+            print(
+                f"{len(ambiguous)} of {len(candidates)} "
+                "candidate(s) are matched ONLY by a sample "
+                "filename, so they could be either:"
+            )
+
+            for item in ambiguous:
+                print(
+                    f"  {item['document_id']}  "
+                    f"{item.get('original_filename')}"
+                )
+
+        print()
+        print(
+            "Choose one:"
+        )
+        print(
+            "  --delete --id <id> [<id> ...]   delete exactly "
+            "these"
+        )
+        print(
+            "  --delete --all-candidates       delete all "
+            "of the above, having read the list"
+        )
+        return 1
+
     print()
     print(
-        "Deleting the documents listed "
-        "above and their cascades..."
+        f"Deleting {len(targets)} document(s) and their "
+        "cascades..."
     )
 
 
     deleted = (
         delete_documents(
-            [
-                item[
-                    "document_id"
-                ]
-                for item in candidates
-            ]
+            targets
         )
     )
 

@@ -1,0 +1,7 @@
+﻿sample_id,document_type,quality,error_type,field_name,ground_truth,prediction,confidence_status,review_decision,review_priority
+id_001,id_card,clean,HALLUCINATION,date_of_birth,,2006-08-23,INVALID_EVIDENCE,REVIEW_REQUIRED,MEDIUM
+guard_004,guard_license,clean,FIELD_MISMATCH,expiry_date,2025-06-10,2025-10-06,VALID,REVIEW_REQUIRED,MEDIUM
+guard_004,guard_license,clean,FIELD_MISMATCH,date_of_birth,1973-11-04,1973-04-11,VALID,REVIEW_REQUIRED,MEDIUM
+guard_004,guard_license,clean,FIELD_MISMATCH,issue_date,2024-06-10,2024-10-06,VALID,REVIEW_REQUIRED,MEDIUM
+guard_020,guard_license,clean,FIELD_MISMATCH,issuer,TX DPS,ISSUED BY TX DPS,VALID,REVIEW_REQUIRED,MEDIUM
+id_019,id_card,clean,MISSED_KNOWN_FIELD,issuer,National Population Registry,,NOT_EXTRACTED,REVIEW_REQUIRED,MEDIUM

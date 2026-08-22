@@ -13,9 +13,13 @@
    OCR text, extracted values, filenames and reviewer ids all
    originate from uploaded documents, so they are untrusted
    input. Interpolating them into innerHTML would be an
-   injection path. New Phase 8 code uses these helpers; the
-   legacy innerHTML sites in review_detail.js are known debt
-   and are replaced as each screen is rebuilt.
+   injection path.
+
+   As of Phase 8.15 every screen renders through these helpers.
+   The 26 innerHTML sites the Phase 8.3 audit found in
+   review_detail.js are gone, along with the hand-written
+   escaper that guarded them: building nodes and assigning
+   textContent needs no escaping at all.
    ========================================================== */
 
 (function (global) {
@@ -204,11 +208,39 @@
         return "low";
     }
 
+    /**
+     * OCR evidence support, as a percentage.
+     *
+     * PHASE 10.5. Two decimals, and 100% ONLY when the value
+     * is exactly 1.
+     *
+     * It used to round to whole percent, which displayed
+     * 0.9988 as "100%". The calibration study found a field
+     * that was WRONG at 0.998555 -- so a reviewer saw "100%"
+     * on a value whose issuer had not been stripped of its
+     * label. Rounding away the difference between 99.86% and
+     * certainty is the display asserting something the
+     * measurement does not support.
+     *
+     * Two decimals also keep the top of the range legible:
+     * the measured distribution runs from 0.944 to 0.999999,
+     * and at whole percent almost all of it collapses onto a
+     * single value.
+     */
     function formatConfidence(value) {
         if (typeof value !== "number" || isNaN(value)) {
             return "N/A";
         }
-        return Math.round(value * 100) + "%";
+
+        if (value >= 1) {
+            return "100%";
+        }
+
+        /* Floor rather than round, so a value below 100 can
+           never be displayed as 100. */
+        var percent = Math.floor(value * 10000) / 100;
+
+        return percent.toFixed(2) + "%";
     }
 
     /** Track + fill + percentage. Returns a DOM node. */
@@ -226,7 +258,15 @@
         return el("div", {
             className: "confidence",
             attrs: {
-                title: "Field confidence: " + formatConfidence(value)
+                /* PHASE 10.5. Named for what it measures. A
+                   tooltip saying "confidence" invites the
+                   reading the calibration study disproved. */
+                title:
+                    "OCR evidence support: " +
+                    formatConfidence(value) +
+                    ". This is how cleanly the text was read, " +
+                    "not the probability that the value is " +
+                    "correct."
             },
             children: [
                 el("div", {
@@ -275,6 +315,8 @@
         var known = {
             AUTO_ACCEPTED: 1,
             PENDING_REVIEW: 1,
+            /* PHASE 10.2. FinalRecordService.FINAL_STATUSES. */
+            UNSUPPORTED: 1,
             APPROVED: 1,
             CORRECTED: 1,
             REJECTED: 1
@@ -286,14 +328,58 @@
         );
     }
 
-    /** Expiry status from date_validation.expiry.status. */
-    function expiryBadge(status) {
-        var known = { EXPIRED: 1, EXPIRING_SOON: 1, VALID: 1 };
+    /**
+     * Document job status badge.
+     *
+     * PHASE 9.4. The five authoritative job states get their
+     * own colour family rather than borrowing badge-state-*,
+     * which belongs to the final record. Reusing it would have
+     * meant a COMPLETED job and an APPROVED review looking
+     * identical, and they mean entirely different things.
+     *
+     * An unrecognised status falls back to neutral and is
+     * humanised, never relabelled as something known.
+     */
+    function jobStatusBadge(status) {
+        var known = {
+            QUEUED: 1,
+            PROCESSING: 1,
+            RETRY_WAIT: 1,
+            COMPLETED: 1,
+            FAILED: 1
+        };
         var key = String(status || "").toUpperCase();
-        if (!known[key]) {
-            return badge("Unknown", "badge-expiry-unknown");
+        return badge(
+            humanizeEnum(key),
+            known[key] ? "badge-job-" + slug(key) : "badge-neutral"
+        );
+    }
+
+    /**
+     * Expiry status from date_validation.expiry.status.
+     *
+     * The validator emits exactly these five values. An
+     * unrecognised value falls back to neutral rather than
+     * being relabelled, so a future backend status shows up
+     * as itself instead of silently reading as healthy.
+     */
+    var EXPIRY_LABELS = {
+        EXPIRED: "Expired",
+        EXPIRES_TODAY: "Expires Today",
+        EXPIRING_SOON: "Expiring Soon",
+        ACTIVE: "Active",
+        NOT_AVAILABLE: "No Expiry Date"
+    };
+
+    function expiryBadge(status) {
+        var key = String(status || "").toUpperCase();
+        if (!Object.prototype.hasOwnProperty.call(EXPIRY_LABELS, key)) {
+            return badge(humanizeEnum(key), "badge-neutral");
         }
-        return badge(humanizeEnum(key), "badge-expiry-" + slug(key));
+        return badge(
+            EXPIRY_LABELS[key],
+            "badge-expiry-" + slug(key)
+        );
     }
 
     /**
@@ -323,6 +409,148 @@
             return badge("Machine", "badge-provenance-machine");
         }
         return badge(humanizeEnum(key), "badge-neutral");
+    }
+
+
+    /* ======================================================
+       STAT CARDS
+       ======================================================
+       Compact enterprise figures. Deliberately not oversized
+       marketing KPIs: the value is one line of --text-3xl and
+       the label sits above it.
+
+       `value` is a count from the API. It is rendered through
+       textContent like everything else, and a null count shows
+       an em dash rather than the string "null".
+       ====================================================== */
+
+    /**
+     * A measured number, for display beside its threshold.
+     *
+     * PHASE 10.1 / 10.2. Two decimal places, with trailing
+     * zeros and a trailing point removed, so 350.00 reads as
+     * 350 and 3.02 keeps both digits.
+     *
+     * Not a percentage and not rounded to a band. These are
+     * raw measurements shown so that a finding can be checked
+     * against its threshold rather than taken on trust.
+     */
+    function formatNumber(value) {
+        if (typeof value !== "number" || !isFinite(value)) {
+            return "\u2014";
+        }
+
+        var text = value.toFixed(2);
+
+        if (text.indexOf(".") !== -1) {
+            text = text.replace(/0+$/, "").replace(/\.$/, "");
+        }
+
+        return text;
+    }
+
+    function formatCount(value) {
+        if (typeof value !== "number" || isNaN(value)) {
+            return "—";
+        }
+        return String(value);
+    }
+
+    function statCard(options) {
+        var config = options || {};
+        var children = [
+            el("span", {
+                className: "stat-label",
+                text: config.label
+            }),
+            el("strong", {
+                className: "stat-value numeric",
+                text: formatCount(config.value)
+            })
+        ];
+
+        if (config.hint) {
+            children.push(
+                el("span", {
+                    className: "stat-hint",
+                    text: config.hint
+                })
+            );
+        }
+
+        if (config.href) {
+            children.push(
+                el("a", {
+                    className: "stat-link",
+                    text: config.linkLabel || "View",
+                    attrs: { href: config.href }
+                })
+            );
+        }
+
+        return el("article", {
+            className:
+                "stat-card" +
+                (config.modifier ? " " + config.modifier : ""),
+            children: children
+        });
+    }
+
+    /**
+     * Label / count / badge row.
+     *
+     * Used for breakdowns where a bar chart would add nothing
+     * a number does not already say.
+     */
+    function metricRow(options) {
+        var config = options || {};
+        return el("div", {
+            className: "metric-row",
+            children: [
+                el("div", {
+                    className: "metric-row-label",
+                    children: [
+                        config.badge || null,
+                        config.label
+                            ? el("span", { text: config.label })
+                            : null
+                    ]
+                }),
+                el("span", {
+                    className: "metric-row-value numeric",
+                    text: formatCount(config.value)
+                })
+            ]
+        });
+    }
+
+
+    /* ======================================================
+       SAFE DOCUMENT LINKS
+       ======================================================
+       A missing id must never become /review/undefined.
+
+       Returning null forces the caller to decide what to
+       render instead, rather than producing a link that 404s.
+       ====================================================== */
+
+    function documentHref(documentId) {
+        if (isBlank(documentId)) {
+            return null;
+        }
+        return "/review/" + encodeURIComponent(documentId);
+    }
+
+    function documentLink(documentId, label, className) {
+        var href = documentHref(documentId);
+        if (!href) {
+            return null;
+        }
+        return el("a", {
+            className: className || "btn btn-secondary btn-sm",
+            text: label || "Open",
+            attrs: { href: href }
+        });
     }
 
 
@@ -486,6 +714,54 @@
                 })
             ]
         });
+    }
+
+    /**
+     * errorState plus a single Retry control.
+     *
+     * The button is disabled for the duration of the retry, so
+     * an impatient double click cannot start two concurrent
+     * requests for the same screen.
+     */
+    function retryableErrorState(error, options) {
+        var config = options || {};
+        var block = errorState(error, config);
+        var body = block.querySelector(".alert-body");
+
+        if (!body || typeof config.onRetry !== "function") {
+            return block;
+        }
+
+        var button = el("button", {
+            className: "btn btn-secondary btn-sm",
+            text: config.retryLabel || "Try Again",
+            attrs: { type: "button" }
+        });
+
+        button.addEventListener("click", function () {
+            if (button.disabled) {
+                return;
+            }
+            setButtonPending(button, true);
+            var outcome = config.onRetry();
+            if (outcome && typeof outcome.then === "function") {
+                outcome.then(
+                    function () { setButtonPending(button, false); },
+                    function () { setButtonPending(button, false); }
+                );
+            } else {
+                setButtonPending(button, false);
+            }
+        });
+
+        body.appendChild(
+            el("div", {
+                className: "alert-actions",
+                children: [button]
+            })
+        );
+
+        return block;
     }
 
     /** Inline status message bound to an aria-live region. */
@@ -721,6 +997,7 @@
         formatDate: formatDate,
         formatDateTime: formatDateTime,
         formatBytes: formatBytes,
+        formatNumber: formatNumber,
 
         CONFIDENCE_HIGH: CONFIDENCE_HIGH,
         CONFIDENCE_MEDIUM: CONFIDENCE_MEDIUM,
@@ -731,9 +1008,17 @@
         badge: badge,
         priorityBadge: priorityBadge,
         finalStateBadge: finalStateBadge,
+        EXPIRY_LABELS: EXPIRY_LABELS,
         expiryBadge: expiryBadge,
         severityBadge: severityBadge,
+        jobStatusBadge: jobStatusBadge,
         provenanceBadge: provenanceBadge,
+
+        formatCount: formatCount,
+        statCard: statCard,
+        metricRow: metricRow,
+        documentHref: documentHref,
+        documentLink: documentLink,
 
         loadingBlock: loadingBlock,
         skeletonRows: skeletonRows,
@@ -742,6 +1027,7 @@
 
         emptyState: emptyState,
         errorState: errorState,
+        retryableErrorState: retryableErrorState,
         setStatusMessage: setStatusMessage,
 
         markActiveNav: markActiveNav,

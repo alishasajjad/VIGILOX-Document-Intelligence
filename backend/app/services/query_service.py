@@ -10,8 +10,24 @@ from database.repositories import (
     ReviewQueueRepository,
 )
 
+from database.summary_repositories import (
+    DocumentSummaryRepository,
+)
+
 from backend.app.services.final_record_service import (
     FinalRecordService,
+)
+
+from backend.app.domain.classification import (
+    describe_classification,
+)
+
+from backend.app.domain.duplicates import (
+    describe_duplicate_source,
+)
+
+from backend.app.domain.findings import (
+    normalize_findings,
 )
 
 
@@ -218,6 +234,26 @@ class DocumentQueryService:
                 "human_review":
                     serialized_human_review,
 
+                # PHASE 10.2. Declared here so the key is
+                # always present. A document with no analysis
+                # row has not been classified at all, which
+                # null says and an invented outcome would not.
+                "classification":
+                    None,
+
+                # PHASE 10.3. Always present, so a caller
+                # never has to distinguish "no duplicate
+                # information" from "key missing".
+                "duplicate":
+                    None,
+
+                # PHASE 10.6. The normalized findings view.
+                # Always present. None means there is no
+                # analysis to normalize, which is a different
+                # statement from an empty findings list.
+                "findings":
+                    None,
+
                 "final_record":
                     None,
             }
@@ -254,6 +290,15 @@ class DocumentQueryService:
                     "anomaly_validation":
                         analysis.anomaly_validation,
 
+                    # PHASE 10.1. None means NOT ASSESSED,
+                    # which is a different statement from
+                    # "no problems found". The interface has
+                    # to be able to tell them apart, so the
+                    # null is passed through rather than
+                    # defaulted to an empty assessment.
+                    "quality":
+                        analysis.quality,
+
                     "review_decision":
                         analysis.review_decision,
 
@@ -266,6 +311,143 @@ class DocumentQueryService:
                             else None
                         ),
                 }
+
+
+                # ==========================================
+                # CLASSIFICATION OUTCOME
+                # PHASE 10.2
+                # ==========================================
+                #
+                # Derived, not stored, from the two values
+                # already in hand. The same function serves
+                # the document list, so the list and the
+                # detail page cannot disagree about whether a
+                # document is supported.
+                # ==========================================
+
+                result[
+                    "classification"
+                ] = (
+                    describe_classification(
+                        document_type=(
+                            (
+                                analysis.extraction
+                                or {}
+                            ).get(
+                                "document_type"
+                            )
+                        ),
+
+                        machine_decision=(
+                            (
+                                analysis.review_decision
+                                or {}
+                            ).get(
+                                "decision"
+                            )
+                        ),
+                    )
+                )
+
+
+                # ==========================================
+                # DUPLICATE SOURCE
+                # PHASE 10.3
+                # ==========================================
+                #
+                # One indexed lookup, on the detail path only.
+                #
+                # NOT on the documents list: that would be a
+                # correlated query per row to answer a
+                # question nobody asks of a table. The list
+                # stays as it was.
+                #
+                # Derived rather than stored, because the
+                # answer changes when a LATER upload of the
+                # same bytes arrives. A stored copy would be
+                # correct at write time and wrong afterwards,
+                # and would need every sibling row rewritten
+                # to fix.
+                #
+                # The fingerprint itself is not in the result.
+                # ==========================================
+
+                same_source = [
+                    row.id
+                    for row in (
+                        document_repository
+                        .documents_for_source(
+                            document.source_sha256
+                        )
+                    )
+                ]
+
+                result[
+                    "duplicate"
+                ] = (
+                    describe_duplicate_source(
+                        document_id=(
+                            document.id
+                        ),
+                        same_source_document_ids=(
+                            same_source
+                        ),
+                    )
+                )
+
+
+                # ==========================================
+                # NORMALIZED FINDINGS
+                # PHASE 10.6
+                # ==========================================
+                #
+                # Derived from payloads already loaded on the
+                # analysis row. No extra query, no stored
+                # column, and therefore no way for this view
+                # to disagree with the raw payloads sitting
+                # beside it in the same response.
+                #
+                # ADDED, NOT SUBSTITUTED. anomaly_validation,
+                # evidence_flags, date_validation and quality
+                # are all still returned exactly as before,
+                # because existing consumers and tests read
+                # them and a cleaner interface is not a reason
+                # to break a working contract.
+                #
+                # classification and duplicate are NOT passed
+                # in. An unsupported document is a
+                # classification outcome and an exact
+                # duplicate is a source-identity outcome;
+                # neither is an anomaly, and flattening either
+                # into this list would say something about the
+                # document that is not true.
+                # ==========================================
+
+                result[
+                    "findings"
+                ] = (
+                    normalize_findings(
+                        anomaly_validation=(
+                            analysis.anomaly_validation
+                        ),
+
+                        quality=(
+                            analysis.quality
+                        ),
+
+                        evidence_flags=(
+                            analysis.evidence_flags
+                        ),
+
+                        date_validation=(
+                            analysis.date_validation
+                        ),
+
+                        review_decision=(
+                            analysis.review_decision
+                        ),
+                    )
+                )
 
 
                 # ==========================================
@@ -597,3 +779,604 @@ class DocumentQueryService:
                 "documents":
                     documents,
             }
+
+
+    # ======================================================
+    # DOCUMENT SUMMARY MAPPING
+    # PHASE 8.8A
+    # ======================================================
+    #
+    # ONE mapping used by both the Documents list and the
+    # Dashboard recent-documents section, so the two screens
+    # can never describe the same document differently.
+    #
+    # final_state comes from FinalRecordService, the same
+    # authority the document detail read path uses. It is not
+    # recomputed here and not encoded in SQL.
+    # ======================================================
+
+    def _map_document_summary(
+        self,
+        row: dict,
+    ) -> dict:
+
+        machine_decision = (
+            row.get(
+                "machine_decision"
+            )
+        )
+
+
+        human_action = (
+            row.get(
+                "human_action"
+            )
+        )
+
+
+        # ==================================================
+        # FINAL STATE
+        # ==================================================
+        #
+        # A row can only fail here if the database holds an
+        # unrecognised human action, which would be a data
+        # integrity problem rather than a request problem.
+        # The list degrades to None for that row instead of
+        # failing the whole page.
+        # ==================================================
+
+        try:
+
+            final_state = (
+                FinalRecordService
+                .resolve_final_status(
+                    machine_decision=(
+                        machine_decision
+                    ),
+
+                    human_action=(
+                        human_action
+                    ),
+                )
+            )
+
+
+        except ValueError:
+
+            final_state = None
+
+
+        def isoformat(
+            value,
+        ):
+
+            return (
+                value.isoformat()
+                if value is not None
+                else None
+            )
+
+
+        return {
+            "document_id":
+                row.get(
+                    "id"
+                ),
+
+            "filename":
+                row.get(
+                    "original_filename"
+                ),
+
+            "content_type":
+                row.get(
+                    "content_type"
+                ),
+
+            "document_type":
+                row.get(
+                    "document_type"
+                ),
+
+            "processing_status":
+                row.get(
+                    "processing_status"
+                ),
+
+            "machine_decision":
+                machine_decision,
+
+            "priority":
+                row.get(
+                    "priority"
+                ),
+
+            "final_state":
+                final_state,
+
+            # PHASE 10.2. Derived by the same function the
+            # detail path uses. The list carries the outcome
+            # rather than the whole block, because a row needs
+            # to be filterable and badge-able, not to restate
+            # the supported-type list once per row.
+            "classification_outcome":
+                (
+                    describe_classification(
+                        document_type=(
+                            row.get(
+                                "document_type"
+                            )
+                        ),
+
+                        machine_decision=(
+                            machine_decision
+                        ),
+                    )["outcome"]
+                ),
+
+            "human_review_action":
+                human_action,
+
+            "is_reviewed":
+                human_action is not None,
+
+            "expiry_date":
+                row.get(
+                    "expiry_date"
+                ),
+
+            "expiry_status":
+                row.get(
+                    "expiry_status"
+                ),
+
+            "reviewer_id":
+                row.get(
+                    "reviewer_id"
+                ),
+
+            "created_at":
+                isoformat(
+                    row.get(
+                        "created_at"
+                    )
+                ),
+
+            "processed_at":
+                isoformat(
+                    row.get(
+                        "processed_at"
+                    )
+                ),
+
+            "reviewed_at":
+                isoformat(
+                    row.get(
+                        "reviewed_at"
+                    )
+                ),
+        }
+
+
+    # ======================================================
+    # FINAL STATE FILTER TRANSLATION
+    # ======================================================
+    #
+    # Turns a final_state into the neutral primitives the
+    # repository understands, using FinalRecordService as the
+    # authority. The repository never learns what a final
+    # state means.
+    # ======================================================
+
+    @staticmethod
+    def _final_state_filters(
+        final_state: str | None,
+    ) -> dict:
+
+        if final_state is None:
+
+            return {}
+
+
+        spec = (
+            FinalRecordService
+            .final_status_query_spec(
+                final_state
+            )
+        )
+
+
+        filters = {}
+
+
+        if spec["human_action"] is not None:
+
+            filters[
+                "human_action"
+            ] = spec[
+                "human_action"
+            ]
+
+
+        if spec["human_action_isnull"] is True:
+
+            filters[
+                "human_action_isnull"
+            ] = True
+
+
+        if spec["machine_decision"] is not None:
+
+            filters[
+                "machine_decision"
+            ] = spec[
+                "machine_decision"
+            ]
+
+
+        # PHASE 10.2. Passed through as-is, which is now a
+        # tuple for PENDING_REVIEW. The repository turns a
+        # collection into NOT IN; see _apply_filters.
+        if spec["machine_decision_not"] is not None:
+
+            filters[
+                "machine_decision_not"
+            ] = spec[
+                "machine_decision_not"
+            ]
+
+
+        return filters
+
+
+    # ======================================================
+    # DOCUMENTS LIST
+    # PHASE 8.8A
+    # ======================================================
+
+    def list_documents(
+        self,
+        *,
+        page: int = 1,
+        page_size: int = 25,
+        document_type: str | None = None,
+        final_state: str | None = None,
+        machine_decision: str | None = None,
+        expiry_status: str | None = None,
+        search: str | None = None,
+        sort: str = "created_at",
+        descending: bool = True,
+    ) -> dict:
+
+        filters = {
+            "document_type":
+                document_type,
+
+            "expiry_status":
+                expiry_status,
+
+            "search":
+                search,
+        }
+
+
+        # ==================================================
+        # MACHINE DECISION
+        # ==================================================
+        #
+        # An explicit machine_decision filter is combined
+        # with any final_state filter rather than replacing
+        # it, so the two remain independent controls.
+        # ==================================================
+
+        if machine_decision is not None:
+
+            filters[
+                "machine_decision"
+            ] = machine_decision
+
+
+        filters.update(
+            self._final_state_filters(
+                final_state
+            )
+        )
+
+
+        offset = (
+            (
+                page - 1
+            )
+            * page_size
+        )
+
+
+        with SessionLocal() as session:
+
+            repository = (
+                DocumentSummaryRepository(
+                    session
+                )
+            )
+
+
+            # ==========================================
+            # Two queries total: one count, one bounded
+            # page. No per-row follow-up query.
+            # ==========================================
+
+            total = (
+                repository.count_documents(
+                    **filters
+                )
+            )
+
+
+            rows = (
+                repository.list_documents(
+                    limit=(
+                        page_size
+                    ),
+
+                    offset=(
+                        offset
+                    ),
+
+                    sort=(
+                        sort
+                    ),
+
+                    descending=(
+                        descending
+                    ),
+
+                    **filters,
+                )
+            )
+
+
+        items = [
+            self._map_document_summary(
+                row
+            )
+            for row in rows
+        ]
+
+
+        total_pages = (
+            (
+                total
+                + page_size
+                - 1
+            )
+            // page_size
+            if page_size
+            else 0
+        )
+
+
+        return {
+            "items":
+                items,
+
+            "total":
+                total,
+
+            "page":
+                page,
+
+            "page_size":
+                page_size,
+
+            "total_pages":
+                total_pages,
+        }
+
+
+    # ======================================================
+    # DASHBOARD SUMMARY
+    # PHASE 8.6A
+    # ======================================================
+    #
+    # Every number here is a SQL aggregate over persisted
+    # data. Nothing is estimated, averaged or scored.
+    #
+    # Deliberately NOT included, because no authoritative
+    # definition exists in this codebase:
+    #
+    #     overall / average confidence
+    #     accuracy or success rate
+    #     risk score
+    #     processing SLA or throughput
+    #
+    # field_confidence is per-field only, so an "overall
+    # confidence" would be an invented statistic.
+    # ======================================================
+
+    def get_dashboard_summary(
+        self,
+        *,
+        recent_limit: int = 5,
+    ) -> dict:
+
+        with SessionLocal() as session:
+
+            repository = (
+                DocumentSummaryRepository(
+                    session
+                )
+            )
+
+
+            total_documents = (
+                repository.count_all_documents()
+            )
+
+
+            by_decision = (
+                repository
+                .count_by_machine_decision()
+            )
+
+
+            by_action = (
+                repository
+                .count_by_human_action()
+            )
+
+
+            by_expiry = (
+                repository
+                .count_by_expiry_status()
+            )
+
+
+            pending_by_priority = (
+                repository
+                .count_pending_review_by_priority()
+            )
+
+
+            recent_rows = (
+                repository.list_documents(
+                    limit=(
+                        recent_limit
+                    ),
+
+                    offset=0,
+
+                    sort="created_at",
+
+                    descending=True,
+                )
+            )
+
+
+        # ==================================================
+        # REVIEW STATE COUNTS
+        # ==================================================
+        #
+        # pending_review is the sum of the per-priority
+        # pending counts, which come from exactly the
+        # ReviewQueueRepository definition. It therefore
+        # agrees with GET /api/v1/reviews/queue by
+        # construction rather than by coincidence.
+        # ==================================================
+
+        pending_review = (
+            sum(
+                pending_by_priority.values()
+            )
+        )
+
+
+        return {
+            "total_documents":
+                total_documents,
+
+            "review": {
+                "pending_review":
+                    pending_review,
+
+                "auto_accepted":
+                    by_decision.get(
+                        "AUTO_ACCEPT",
+                        0,
+                    ),
+
+                "review_required":
+                    by_decision.get(
+                        "REVIEW_REQUIRED",
+                        0,
+                    ),
+
+                # PHASE 10.2. Deliberately not added into
+                # pending_review or review_required: nothing
+                # is queued for a reviewer here, and rolling
+                # it in would overstate outstanding work.
+                "unsupported":
+                    by_decision.get(
+                        "UNSUPPORTED_DOCUMENT",
+                        0,
+                    ),
+
+                "approved":
+                    by_action.get(
+                        "APPROVE",
+                        0,
+                    ),
+
+                "corrected":
+                    by_action.get(
+                        "CORRECT",
+                        0,
+                    ),
+
+                "rejected":
+                    by_action.get(
+                        "REJECT",
+                        0,
+                    ),
+            },
+
+            # Keys mirror date_validation.expiry.status
+            # exactly. No new threshold is introduced.
+            "expiry": {
+                "expired":
+                    by_expiry.get(
+                        "EXPIRED",
+                        0,
+                    ),
+
+                "expires_today":
+                    by_expiry.get(
+                        "EXPIRES_TODAY",
+                        0,
+                    ),
+
+                "expiring_soon":
+                    by_expiry.get(
+                        "EXPIRING_SOON",
+                        0,
+                    ),
+
+                "active":
+                    by_expiry.get(
+                        "ACTIVE",
+                        0,
+                    ),
+
+                "not_available":
+                    by_expiry.get(
+                        "NOT_AVAILABLE",
+                        0,
+                    ),
+            },
+
+            "pending_review_priority": {
+                "high":
+                    pending_by_priority.get(
+                        "HIGH",
+                        0,
+                    ),
+
+                "medium":
+                    pending_by_priority.get(
+                        "MEDIUM",
+                        0,
+                    ),
+
+                "low":
+                    pending_by_priority.get(
+                        "LOW",
+                        0,
+                    ),
+            },
+
+            "recent_documents": [
+                self._map_document_summary(
+                    row
+                )
+                for row in recent_rows
+            ],
+        }

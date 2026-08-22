@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        Upload Document · VIGILOX
+    </title>
+
+    <link
+        rel="icon"
+        type="image/svg+xml"
+        href="/review/static/favicon.svg"
+    />
+
+    <link
+        rel="alternate icon"
+        type="image/x-icon"
+        href="/review/static/favicon.ico"
+    />
+
+    <link
+        rel="apple-touch-icon"
+        href="/review/static/apple-touch-icon.png"
+    />
+
+    <link
+        rel="stylesheet"
+        href="/review/static/css/tokens.css"
+    >
+
+    <link
+        rel="stylesheet"
+        href="/review/static/css/base.css"
+    >
+
+    <link
+        rel="stylesheet"
+        href="/review/static/css/layout.css"
+    >
+
+    <link
+        rel="stylesheet"
+        href="/review/static/css/components.css"
+    >
+
+    <link
+        rel="stylesheet"
+        href="/review/static/css/responsive.css"
+    >
+
+</head>
+
+
+<body>
+
+    <a class="skip-link" href="#main-content">
+        Skip to main content
+    </a>
+
+
+    <div class="app-shell">
+
+        <!-- ============================================= -->
+        <!-- SIDEBAR -->
+        <!-- ============================================= -->
+
+        <aside class="sidebar">
+
+            <div class="brand">
+
+                <div class="brand-mark" aria-hidden="true">
+                    V
+                </div>
+
+                <div>
+
+                    <div class="brand-name">
+                        VIGILOX
+                    </div>
+
+                    <div class="brand-subtitle">
+                        Document Intelligence
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <nav
+                class="navigation"
+                aria-label="Primary"
+            >
+
+                <p class="nav-section-label">
+                    Workspace
+                </p>
+
+                <a
+                    href="/dashboard"
+                    class="nav-item"
+                    data-nav-match="exact"
+                    data-nav-prefix="/dashboard"
+                >
+                    <span class="nav-item-label">Dashboard</span>
+                </a>
+
+                <a
+                    href="/upload"
+                    class="nav-item"
+                    data-nav-match="exact"
+                    data-nav-prefix="/upload"
+                    aria-current="page"
+                >
+                    <span class="nav-item-label">Upload Document</span>
+                </a>
+
+                <a
+                    href="/documents"
+                    class="nav-item"
+                    data-nav-match="prefix"
+                    data-nav-prefix="/documents"
+                >
+                    <span class="nav-item-label">Documents</span>
+                </a>
+
+                <a
+                    href="/review"
+                    class="nav-item"
+                    data-nav-match="prefix"
+                    data-nav-prefix="/review"
+                >
+                    <span class="nav-item-label">Review Queue</span>
+                </a>
+
+            </nav>
+
+
+            <div class="sidebar-footer">
+
+                <!-- ===================================== -->
+                <!-- REVIEWER IDENTITY                     -->
+                <!-- ===================================== -->
+                <!--
+                    Resolved by the server from
+                    GET /api/v1/reviewer/me.
+
+                    Read-only by design. There is no input
+                    here and the browser cannot choose or
+                    influence who the reviewer is.
+                -->
+
+                <div class="shell-reviewer">
+
+                    <div
+                        id="shell-reviewer-avatar"
+                        class="shell-reviewer-avatar"
+                        aria-hidden="true"
+                    >
+                        &hellip;
+                    </div>
+
+                    <div class="shell-reviewer-body">
+
+                        <div
+                            id="shell-reviewer-name"
+                            class="shell-reviewer-name"
+                        >
+                            Loading reviewer
+                        </div>
+
+                        <div class="shell-reviewer-meta">
+
+                            <span
+                                id="shell-reviewer-role"
+                                class="shell-reviewer-role"
+                            ></span>
+
+                            <span
+                                id="shell-reviewer-access"
+                                class="shell-reviewer-access"
+                            ></span>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <div class="system-status">
+
+                    <span
+                        id="status-indicator"
+                        class="status-dot"
+                        aria-hidden="true"
+                    ></span>
+
+                    <span
+                        id="status-text"
+                        role="status"
+                    >
+                        Checking API
+                    </span>
+
+                </div>
+
+            </div>
+
+        </aside>
+
+
+        <!-- ============================================= -->
+        <!-- MAIN -->
+        <!-- ============================================= -->
+
+        <main
+            id="main-content"
+            class="main-content"
+        >
+
+            <header class="page-header">
+
+                <div>
+
+                    <p class="eyebrow">
+                        DOCUMENT INTAKE
+                    </p>
+
+                    <h1>
+                        Upload Document
+                    </h1>
+
+                    <p class="page-description">
+                        Upload a security document for automated
+                        extraction and validation. VIGILOX reads
+                        the document, checks every field against
+                        its own OCR evidence, and decides whether
+                        a human reviewer is required.
+                    </p>
+
+                </div>
+
+            </header>
+
+
+            <div class="upload-layout">
+
+                <!-- ===================================== -->
+                <!-- UPLOAD PANEL -->
+                <!-- ===================================== -->
+
+                <section
+                    class="card"
+                    aria-labelledby="upload-panel-title"
+                >
+
+                    <div class="card-head">
+
+                        <h2
+                            id="upload-panel-title"
+                            class="card-title"
+                        >
+                            Select a document
+                        </h2>
+
+                    </div>
+
+
+                    <div class="card-body">
+
+                        <!-- ============================= -->
+                        <!-- MODE SWITCH -->
+                        <!-- ============================= -->
+                        <!--
+                            A radiogroup of two real radio
+                            inputs, styled as a segmented
+                            control.
+
+                            Radios rather than buttons with
+                            aria-pressed, because this is a
+                            choice between two mutually
+                            exclusive options and that is
+                            exactly what a radio group is.
+                            Arrow-key navigation, the
+                            announcement of "1 of 2", and the
+                            grouping all come from the
+                            platform instead of being
+                            reimplemented.
+                        -->
+
+                        <div
+                            class="mode-switch"
+                            role="radiogroup"
+                            aria-labelledby="mode-switch-label"
+                        >
+
+                            <span
+                                id="mode-switch-label"
+                                class="mode-switch-label"
+                            >
+                                Upload mode
+                            </span>
+
+                            <div class="mode-switch-options">
+
+                                <input
+                                    type="radio"
+                                    name="upload-mode"
+                                    id="mode-single"
+                                    class="mode-switch-input"
+                                    value="single"
+                                    checked
+                                >
+                                <label
+                                    for="mode-single"
+                                    class="mode-switch-option"
+                                >
+                                    Single document
+                                </label>
+
+                                <input
+                                    type="radio"
+                                    name="upload-mode"
+                                    id="mode-batch"
+                                    class="mode-switch-input"
+                                    value="batch"
+                                >
+                                <label
+                                    for="mode-batch"
+                                    class="mode-switch-option"
+                                >
+                                    Batch upload
+                                </label>
+
+                            </div>
+
+                        </div>
+
+
+                        <!-- ============================= -->
+                        <!-- SINGLE DOCUMENT -->
+                        <!-- ============================= -->
+
+                        <div id="single-mode">
+
+                        <!--
+                            VALIDATION MESSAGE
+
+                            aria-live so a client-side
+                            validation failure is announced
+                            rather than only shown.
+                        -->
+
+                        <p
+                            id="upload-validation"
+                            class="status-message is-error"
+                            role="alert"
+                            aria-live="assertive"
+                        ></p>
+
+
+                        <!-- ============================= -->
+                        <!-- IDLE: DROP ZONE -->
+                        <!-- ============================= -->
+                        <!--
+                            The interactive control is the
+                            native file input below, paired
+                            with a real <label>. Drag and drop
+                            is an enhancement layered on top,
+                            never the only way in.
+                        -->
+
+                        <div
+                            id="drop-zone"
+                            class="drop-zone"
+                        >
+
+                            <p class="drop-zone-title">
+                                Drag &amp; drop your document here
+                            </p>
+
+                            <p class="drop-zone-separator">
+                                or
+                            </p>
+
+                            <label
+                                for="file-input"
+                                class="btn btn-primary"
+                            >
+                                Browse Files
+                            </label>
+
+                            <input
+                                type="file"
+                                id="file-input"
+                                class="file-input"
+                                accept="image/jpeg,image/png,image/webp"
+                                aria-describedby="upload-constraints"
+                            >
+
+                            <p
+                                id="upload-constraints"
+                                class="drop-zone-hint"
+                            >
+                                JPG, PNG or WEBP &middot;
+                                Maximum 10 MB &middot; One file
+                            </p>
+
+                        </div>
+
+
+                        <!-- ============================= -->
+                        <!-- SELECTED: FILE CARD -->
+                        <!-- ============================= -->
+
+                        <div
+                            id="file-card"
+                            class="file-card"
+                            hidden
+                        >
+
+                            <img
+                                id="file-preview"
+                                class="file-preview"
+                                alt="Preview of the selected document"
+                            >
+
+                            <div class="file-meta">
+
+                                <div
+                                    id="file-name"
+                                    class="file-name"
+                                ></div>
+
+                                <div class="file-facts">
+
+                                    <span id="file-type"></span>
+
+                                    <span id="file-size"></span>
+
+                                </div>
+
+                                <div
+                                    id="file-ready-row"
+                                    class="file-facts spacing-top-2"
+                                >
+                                    <span
+                                        id="file-ready"
+                                        class="badge badge-success"
+                                    >
+                                        Ready to analyze
+                                    </span>
+                                </div>
+
+                            </div>
+
+                            <!--
+                                Replace and Remove belong to the
+                                selection step only. The card
+                                itself stays visible while the
+                                document is processed so the
+                                user can still see WHICH image
+                                they submitted, but the file is
+                                no longer theirs to swap at
+                                that point.
+                            -->
+                            <div
+                                id="file-actions"
+                                class="file-actions"
+                            >
+
+                                <label
+                                    for="file-input"
+                                    class="btn btn-secondary btn-sm"
+                                >
+                                    Replace
+                                </label>
+
+                                <button
+                                    type="button"
+                                    id="remove-button"
+                                    class="btn btn-ghost btn-sm"
+                                >
+                                    Remove
+                                </button>
+
+                            </div>
+
+                        </div>
+
+
+                        <!-- ============================= -->
+                        <!-- ANALYZING -->
+                        <!-- ============================= -->
+                        <!--
+                            Indeterminate only.
+
+                            There is no percentage and no
+                            progress bar. The analyze endpoint
+                            is synchronous and reports no stage
+                            information, so any number here
+                            would be invented.
+                        -->
+
+                        <div
+                            id="processing-panel"
+                            class="processing-panel"
+                            role="status"
+                            aria-live="polite"
+                            hidden
+                        >
+
+                            <div
+                                class="spinner"
+                                aria-hidden="true"
+                            ></div>
+
+                            <div class="processing-body">
+
+                                <div class="processing-title">
+                                    Analysis in progress
+                                </div>
+
+                                <div
+                                    id="processing-message"
+                                    class="processing-message"
+                                >
+                                    Uploading document
+                                </div>
+
+                                <!--
+                                    NOT "please keep this page
+                                    open".
+
+                                    The job is a committed row
+                                    in PostgreSQL and its bytes
+                                    are in pending storage
+                                    before this page is ever
+                                    told the job exists. The
+                                    worker claims it on its own
+                                    schedule and nothing in the
+                                    API cancels a job when a
+                                    client disconnects.
+
+                                    So the old wording asked
+                                    the user to babysit
+                                    something that does not
+                                    need babysitting -- and
+                                    during a provider rate
+                                    limit, where a retry can be
+                                    minutes away, it turned a
+                                    working queue into an
+                                    instruction to sit and
+                                    wait.
+                                -->
+                                <div
+                                    id="processing-note"
+                                    class="processing-note"
+                                >
+                                    You can leave this page.
+                                    Processing continues in the
+                                    background and the document
+                                    will appear in Documents
+                                    when it is done.
+                                </div>
+
+                            </div>
+
+                        </div>
+
+
+                        <!-- ============================= -->
+                        <!-- SUCCESS -->
+                        <!-- ============================= -->
+
+                        <div
+                            id="success-panel"
+                            class="alert alert-success"
+                            role="status"
+                            aria-live="polite"
+                            hidden
+                        >
+
+                            <div class="alert-body">
+
+                                <p class="alert-title">
+                                    Document analyzed successfully
+                                </p>
+
+                                <div
+                                    id="success-facts"
+                                    class="detail-rows"
+                                ></div>
+
+                                <p
+                                    id="success-redirect"
+                                    class="text-meta spacing-top-3"
+                                >
+                                    Opening the document workspace&hellip;
+                                </p>
+
+                            </div>
+
+                        </div>
+
+
+                        <!-- ============================= -->
+                        <!-- ERROR -->
+                        <!-- ============================= -->
+
+                        <div
+                            id="error-panel"
+                            class="alert alert-danger"
+                            role="alert"
+                            aria-live="assertive"
+                            hidden
+                        >
+
+                            <div class="alert-body">
+
+                                <p
+                                    id="error-title"
+                                    class="alert-title"
+                                >
+                                    Analysis failed
+                                </p>
+
+                                <p id="error-message"></p>
+
+                                <div
+                                    id="error-meta"
+                                    class="alert-meta"
+                                ></div>
+
+                                <!--
+                                  PHASE 10.3. Actions for a
+                                  duplicate: open the existing
+                                  document, follow the job
+                                  already running, or ask for
+                                  a deliberate re-analysis.
+
+                                  Empty and hidden for every
+                                  other kind of failure.
+                                -->
+                                <div
+                                    id="error-actions"
+                                    class="alert-actions"
+                                    hidden
+                                ></div>
+
+                            </div>
+
+                        </div>
+
+                        </div>
+                        <!-- /single-mode -->
+
+
+                        <!-- ============================= -->
+                        <!-- BATCH UPLOAD -->
+                        <!-- ============================= -->
+
+                        <div id="batch-mode" hidden>
+
+                            <!--
+                                Announced, not just shown. A
+                                file rejected during selection
+                                is the one thing a keyboard or
+                                screen-reader user has no
+                                other way to notice.
+                            -->
+
+                            <p
+                                id="batch-validation"
+                                class="status-message is-error"
+                                role="alert"
+                                aria-live="assertive"
+                            ></p>
+
+                            <!--
+                              PHASE 10.3. One row per
+                              duplicate file, each with
+                              somewhere to go. The validation
+                              message above names them; this
+                              makes them actionable.
+                            -->
+                            <ul
+                                id="batch-duplicate-list"
+                                class="batch-duplicate-list"
+                                hidden
+                            ></ul>
+
+
+                            <!-- SELECTION -->
+
+                            <div
+                                id="batch-select"
+                                class="drop-zone"
+                            >
+
+                                <p class="drop-zone-title">
+                                    Select several documents
+                                </p>
+
+                                <p class="drop-zone-separator">
+                                    or drag &amp; drop them here
+                                </p>
+
+                                <label
+                                    for="batch-file-input"
+                                    class="btn btn-secondary"
+                                >
+                                    Choose Documents
+                                </label>
+
+                                <input
+                                    type="file"
+                                    id="batch-file-input"
+                                    class="file-input"
+                                    accept="image/jpeg,image/png,image/webp"
+                                    multiple
+                                    aria-describedby="batch-constraints"
+                                >
+
+                                <p
+                                    id="batch-constraints"
+                                    class="drop-zone-hint"
+                                >
+                                    JPG, PNG or WEBP. Up to
+                                    10 MiB each.
+                                </p>
+
+                            </div>
+
+
+                            <!-- SELECTED FILES -->
+
+                            <div
+                                id="batch-selection"
+                                class="batch-selection"
+                                hidden
+                            >
+
+                                <div class="batch-selection-head">
+
+                                    <h3 class="batch-subtitle">
+                                        Selected documents
+                                    </h3>
+
+                                    <p
+                                        id="batch-selection-count"
+                                        class="batch-count"
+                                        aria-live="polite"
+                                    ></p>
+
+                                </div>
+
+                                <!--
+                                    A list, because it is a
+                                    list. Screen readers
+                                    announce how many items
+                                    there are, which a stack
+                                    of divs does not.
+                                -->
+                                <ul
+                                    id="batch-file-list"
+                                    class="batch-file-list"
+                                ></ul>
+
+                            </div>
+
+
+                            <!-- PROCESSING -->
+
+                            <div
+                                id="batch-progress"
+                                class="batch-progress"
+                                role="status"
+                                aria-live="polite"
+                                hidden
+                            >
+
+                                <div class="batch-progress-head">
+
+                                    <h3 class="batch-subtitle">
+                                        Processing batch
+                                    </h3>
+
+                                    <p
+                                        id="batch-progress-state"
+                                        class="batch-count"
+                                    ></p>
+
+                                </div>
+
+                                <!--
+                                    Real counts from the
+                                    batch endpoint. No
+                                    percentage: the pipeline
+                                    cannot report progress
+                                    within a document, so a
+                                    number would be invented.
+                                -->
+                                <div
+                                    id="batch-summary"
+                                    class="batch-summary"
+                                ></div>
+
+                                <ul
+                                    id="batch-results"
+                                    class="batch-file-list"
+                                ></ul>
+
+                            </div>
+
+
+                            <!-- BATCH FAILED TO SUBMIT -->
+
+                            <div
+                                id="batch-error"
+                                class="alert alert-danger"
+                                role="alert"
+                                aria-live="assertive"
+                                hidden
+                            >
+
+                                <div class="alert-body">
+
+                                    <p
+                                        id="batch-error-title"
+                                        class="alert-title"
+                                    >
+                                        Batch could not be submitted
+                                    </p>
+
+                                    <p id="batch-error-message"></p>
+
+                                    <div
+                                        id="batch-error-meta"
+                                        class="alert-meta"
+                                    ></div>
+
+                                </div>
+
+                            </div>
+
+                        </div>
+                        <!-- /batch-mode -->
+
+                    </div>
+
+
+                    <div class="card-foot">
+
+                        <div
+                            id="single-actions"
+                            class="page-actions"
+                        >
+
+                            <button
+                                type="button"
+                                id="analyze-button"
+                                class="btn btn-primary"
+                                disabled
+                            >
+                                Analyze Document
+                            </button>
+
+                            <button
+                                type="button"
+                                id="retry-button"
+                                class="btn btn-secondary"
+                                hidden
+                            >
+                                Try Again
+                            </button>
+
+                        </div>
+
+                        <div
+                            id="batch-actions"
+                            class="page-actions"
+                            hidden
+                        >
+
+                            <button
+                                type="button"
+                                id="batch-submit-button"
+                                class="btn btn-primary"
+                                disabled
+                            >
+                                Process Batch
+                            </button>
+
+                            <button
+                                type="button"
+                                id="batch-clear-button"
+                                class="btn btn-secondary"
+                                disabled
+                            >
+                                Clear Selection
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                </section>
+
+
+                <!-- ===================================== -->
+                <!-- SIDE PANELS -->
+                <!-- ===================================== -->
+
+                <div class="section">
+
+                    <section
+                        class="card spacing-bottom-4"
+                        aria-labelledby="spec-title"
+                    >
+
+                        <div class="card-head">
+
+                            <h2
+                                id="spec-title"
+                                class="card-title"
+                            >
+                                Accepted input
+                            </h2>
+
+                        </div>
+
+                        <div class="card-body">
+
+                            <div class="spec-rows">
+
+                                <div class="spec-row">
+                                    <span class="spec-label">
+                                        File types
+                                    </span>
+                                    <span class="spec-value">
+                                        JPG, PNG, WEBP
+                                    </span>
+                                </div>
+
+                                <div class="spec-row">
+                                    <span class="spec-label">
+                                        Maximum size
+                                    </span>
+                                    <span class="spec-value">
+                                        10 MB
+                                    </span>
+                                </div>
+
+                                <div class="spec-row">
+                                    <span class="spec-label">
+                                        Files per upload
+                                    </span>
+                                    <span class="spec-value">
+                                        One
+                                    </span>
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    </section>
+
+
+                    <section
+                        class="card spacing-bottom-4"
+                        aria-labelledby="types-title"
+                    >
+
+                        <div class="card-head">
+
+                            <h2
+                                id="types-title"
+                                class="card-title"
+                            >
+                                Supported documents
+                            </h2>
+
+                        </div>
+
+                        <div class="card-body">
+
+                            <div class="spec-rows">
+
+                                <div class="spec-row">
+                                    <span class="spec-label">
+                                        Security Guard Licence
+                                    </span>
+                                </div>
+
+                                <div class="spec-row">
+                                    <span class="spec-label">
+                                        ID Card
+                                    </span>
+                                </div>
+
+                                <div class="spec-row">
+                                    <span class="spec-label">
+                                        SIA Badge
+                                    </span>
+                                </div>
+
+                            </div>
+
+                            <p
+                                class="field-hint spacing-top-4"
+                            >
+                                The document type is detected
+                                automatically. You do not need
+                                to choose it.
+                            </p>
+
+                        </div>
+
+                    </section>
+
+
+                    <section
+                        class="card"
+                        aria-labelledby="guidance-title"
+                    >
+
+                        <div class="card-head">
+
+                            <h2
+                                id="guidance-title"
+                                class="card-title"
+                            >
+                                For best results
+                            </h2>
+
+                        </div>
+
+                        <div class="card-body">
+
+                            <ul class="guidance-list">
+
+                                <li>
+                                    Keep all four document edges
+                                    visible.
+                                </li>
+
+                                <li>
+                                    Avoid glare and heavy blur.
+                                </li>
+
+                                <li>
+                                    Use even lighting.
+                                </li>
+
+                                <li>
+                                    Make sure printed text is
+                                    readable.
+                                </li>
+
+                            </ul>
+
+                        </div>
+
+                    </section>
+
+                </div>
+
+            </div>
+
+        </main>
+
+    </div>
+
+
+    <script
+        src="/review/static/js/api.js"
+    ></script>
+
+    <script
+        src="/review/static/js/common.js"
+    ></script>
+
+    <!-- Phase 9.4: job status labels come from the shared
+         vocabulary, not from strings invented on this page. -->
+    <script
+        src="/review/static/js/vocabulary.js"
+    ></script>
+
+    <script
+        src="/review/static/js/upload.js"
+    ></script>
+
+    <!-- Batch selection, submission and status polling.
+         Separate from upload.js because it is a distinct
+         flow with its own state, not because upload.js was
+         long. -->
+    <script
+        src="/review/static/js/upload_batch.js"
+    ></script>
+
+</body>
+
+</html>

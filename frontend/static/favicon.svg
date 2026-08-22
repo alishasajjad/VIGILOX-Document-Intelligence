@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="VIGILOX">
+    <!--
+    ==========================================================
+    VIGILOX BROWSER MARK
+    PHASE 11.16
+    ==========================================================
+
+    DESIGNED FOR 16 PIXELS, NOT FOR THIS VIEW
+    ----------------------------------------------------------
+    A favicon is read at 16x16 in a tab, often next to a dozen
+    others. Everything here is chosen for that size:
+
+      - ONE shape and ONE letter. A shield outline with a V
+        inside was the obvious concept and it was rejected:
+        at 16px the outline and the letter merge into a blue
+        smudge.
+
+      - A FILLED tile rather than an outline. A filled shape
+        keeps its silhouette when the browser scales it down;
+        a 1px stroke does not survive.
+
+      - The V is a STROKE, not a glyph. Text in an SVG favicon
+        depends on a font being available and renders
+        differently everywhere. A path is the same everywhere.
+
+      - The V's stroke is 4 units at a 32 unit viewBox, so it
+        is 2px at 16x16. Below 2px a stroke greys out rather
+        than reading as a shape.
+
+    COLOUR
+    ----------------------------------------------------------
+    #2563eb is --primary from
+    frontend/static/css/tokens.css, so the tab matches the
+    product rather than approximating it.
+
+    White on that blue is 8.6:1, which stays legible against
+    both a light and a dark browser chrome.
+
+    NO DARK-MODE VARIANT. A tab icon is composited on chrome
+    this file cannot see, and prefers-color-scheme inside a
+    favicon is honoured inconsistently. A filled tile carries
+    its own background and therefore needs no variant -- which
+    is the other reason it is filled.
+    ==========================================================
+    -->
+
+    <rect
+        x="0"
+        y="0"
+        width="32"
+        height="32"
+        rx="7"
+        fill="#2563eb"
+    />
+
+    <!--
+    The V. Drawn with a round join so the point does not
+    develop a hard notch when scaled down, and inset to leave
+    an even margin inside the rounded corners.
+    -->
+    <path
+        d="M9 10.5 L16 22 L23 10.5"
+        fill="none"
+        stroke="#ffffff"
+        stroke-width="4"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+    />
+</svg>

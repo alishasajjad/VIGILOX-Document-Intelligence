@@ -1,0 +1,173 @@
+# ==========================================================
+# DOCKER BUILD CONTEXT EXCLUSIONS
+# PHASE 11.8
+# ==========================================================
+#
+# This file is a SECURITY BOUNDARY, not a build optimisation.
+#
+# Everything not excluded here is copied into the build
+# context and can end up in an image layer. A layer is not
+# removable: deleting a file in a later RUN leaves it in the
+# earlier layer, readable by anyone who pulls the image.
+#
+# So the rule is deny-by-default for anything that is data,
+# credentials, or local state.
+#
+# tests/deployment/test_phase11_containerization.py reads
+# this file and asserts that every sensitive path is excluded
+# by it, so an addition here cannot silently stop covering
+# something.
+# ==========================================================
+
+
+# ----------------------------------------------------------
+# SECRETS
+# ----------------------------------------------------------
+#
+# .env holds GROQ_API_KEY and the PostgreSQL password. It must
+# never enter a layer. Real values arrive as environment
+# variables at run time.
+#
+# .env.example is excluded too: it is documentation for a
+# developer, not something the runtime reads.
+
+.env
+.env.*
+.env.example
+
+
+# ----------------------------------------------------------
+# BUSINESS DATA
+# ----------------------------------------------------------
+#
+# storage/ holds managed source documents -- real identity
+# documents -- and storage/pending holds uploads waiting for a
+# worker. Both are runtime state on a volume, never image
+# content.
+
+storage/
+storage/documents/
+storage/pending/
+
+
+# ----------------------------------------------------------
+# LOCAL SAMPLE DOCUMENTS
+# ----------------------------------------------------------
+#
+# samples/ is excluded in full.
+#
+# A Phase 8 content inspection found samples/id_card.jpg is a
+# photograph of what appears to be a REAL Vietnamese national
+# identity card, carrying a 12-digit CCCD number, a name, a
+# date of birth and a residential address.
+#
+# Nothing at runtime reads it and no test requires it. The
+# whole directory stays out, with no exception for individual
+# files: one unsafe image here is enough reason to exclude all
+# of it.
+
+samples/
+
+
+# ----------------------------------------------------------
+# EVALUATION ARTIFACTS
+# ----------------------------------------------------------
+#
+# Versioned in Git deliberately -- the benchmark numbers are
+# only meaningful alongside the ground truth they came from --
+# but not needed by the running application, and the ground
+# truth is the answer key to the evaluation set.
+
+evaluation/
+
+
+# ----------------------------------------------------------
+# GENERATED OUTPUT AND LOGS
+# ----------------------------------------------------------
+
+output/
+*.log
+logs/
+
+
+# ----------------------------------------------------------
+# DEVELOPER ENVIRONMENT AND CACHES
+# ----------------------------------------------------------
+#
+# .venv is the largest single thing in the context and is
+# built for the wrong platform: a Windows virtualenv copied
+# into a Linux image is useless and would shadow the
+# site-packages the image installs.
+
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.paddlex/
+
+
+# ----------------------------------------------------------
+# VERSION CONTROL
+# ----------------------------------------------------------
+#
+# .git carries the full history. Excluding it keeps the
+# context small and keeps anything ever committed and later
+# removed out of the image.
+
+.git/
+.gitignore
+.gitattributes
+
+
+# ----------------------------------------------------------
+# EDITOR AND OPERATING SYSTEM
+# ----------------------------------------------------------
+
+.idea/
+.vscode/
+*.swp
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+
+# ----------------------------------------------------------
+# TESTS AND DEVELOPER TOOLING
+# ----------------------------------------------------------
+#
+# Excluded from the RUNTIME image on purpose.
+#
+# The suite is 90+ files, it imports test-only helpers, and
+# several suites create and drop databases. None of that
+# belongs in a production image, and a test runner present in
+# production is a way to run arbitrary code.
+#
+# The gate runs in CI against the repository, not against the
+# image. Phase 12's deployment smoke exercises the image
+# through its HTTP surface instead, which is what a
+# deployment actually has to work through.
+
+tests/
+scripts/development/
+scripts/evaluation/
+scripts/verification/
+
+
+# ----------------------------------------------------------
+# DOCUMENTATION
+# ----------------------------------------------------------
+#
+# Read on GitHub, not in a container.
+
+docs/
+README.md
+frontend/README.md
+scripts/README.md

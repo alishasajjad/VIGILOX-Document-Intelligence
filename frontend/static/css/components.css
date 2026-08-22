@@ -292,6 +292,49 @@
     color: var(--low);
 }
 
+/* ----------------------------------------------------------
+   DOCUMENT JOB STATE
+   PHASE 9.4
+   ----------------------------------------------------------
+   A separate family from badge-state-*, which belongs to the
+   final record. A COMPLETED job and an APPROVED review are
+   different things and should not look the same.
+
+   Built from existing semantic tokens: no new colours, so a
+   theme change moves these with everything else.
+   ---------------------------------------------------------- */
+
+.badge-job-queued {
+    background: var(--surface-muted);
+    color: var(--text-soft);
+    border-color: var(--border);
+}
+
+.badge-job-processing {
+    background: var(--info-soft);
+    color: var(--info);
+    border-color: var(--info-border);
+}
+
+.badge-job-retry-wait {
+    background: var(--warning-soft);
+    color: var(--warning);
+    border-color: var(--warning-border);
+}
+
+.badge-job-completed {
+    background: var(--success-soft);
+    color: var(--success);
+    border-color: var(--success-border);
+}
+
+.badge-job-failed {
+    background: var(--danger-soft);
+    color: var(--danger);
+    border-color: var(--danger-border);
+}
+
+
 /* Final record state */
 .badge-state-auto-accepted {
     background: var(--state-auto-accepted-soft);
@@ -323,6 +366,12 @@
     border-color: var(--danger-border);
 }
 
+.badge-state-unsupported {
+    background: var(--state-unsupported-soft);
+    color: var(--state-unsupported);
+    border-color: var(--neutral-border);
+}
+
 /* Expiry */
 .badge-expiry-expired {
     background: var(--expiry-expired-soft);
@@ -336,13 +385,26 @@
     border-color: var(--warning-border);
 }
 
-.badge-expiry-valid {
+/* Phase 8.6A correction.
+   The backend emits five expiry statuses, not three:
+   EXPIRED, EXPIRES_TODAY, EXPIRING_SOON, ACTIVE and
+   NOT_AVAILABLE. Phase 8.4 guessed VALID and UNKNOWN, which
+   the validator never produces, so a healthy document had no
+   matching badge. These now mirror date_logical_validator. */
+
+.badge-expiry-expires-today {
+    background: var(--expiry-expired-soft);
+    color: var(--expiry-expired);
+    border-color: var(--danger-border);
+}
+
+.badge-expiry-active {
     background: var(--expiry-valid-soft);
     color: var(--expiry-valid);
     border-color: var(--success-border);
 }
 
-.badge-expiry-unknown {
+.badge-expiry-not-available {
     background: var(--expiry-unknown-soft);
     color: var(--expiry-unknown);
     border-color: var(--neutral-border);
@@ -451,6 +513,24 @@
 .field-hint {
     color: var(--text-soft);
     font-size: var(--text-sm);
+}
+
+/* ==========================================================
+   PHASE 10.5 - THE CONFIDENCE CAVEAT
+   ==========================================================
+   Given more weight than a plain hint, because it sits beside
+   numbers that read as certainty and says they are not.
+
+   Warning rather than danger: nothing has gone wrong. The
+   number is being described accurately, which is a different
+   thing from a fault.
+   ========================================================== */
+.field-hint.is-caveat {
+    color: var(--warning);
+    background: var(--warning-soft);
+    border-left: 3px solid var(--warning-border);
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius);
 }
 
 .field-error {
@@ -855,4 +935,863 @@
     background: var(--info-soft);
     border-color: var(--info-border);
     color: var(--info);
+}
+
+
+/* ==========================================================
+   UPLOAD
+   PHASE 8.7
+   ==========================================================
+   Drop zone, selected-file preview and processing panel.
+
+   These live in the shared component layer rather than in an
+   upload-only stylesheet, so the Upload page inherits the
+   same surfaces, borders and focus treatment as every other
+   screen instead of growing its own visual language.
+   ========================================================== */
+
+.upload-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 4fr);
+    gap: var(--space-6);
+    align-items: start;
+}
+
+
+/* ----------------------------------------------------------
+   DROP ZONE
+   ----------------------------------------------------------
+   Presentation only. The interactive control is a native
+   file input paired with a real <label>, so keyboard and
+   screen-reader users get the platform behaviour and
+   drag-and-drop stays a pure enhancement.
+   ---------------------------------------------------------- */
+
+.drop-zone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-12) var(--space-6);
+    border: 1px dashed var(--border-strong);
+    border-radius: var(--radius-md);
+    background: var(--surface-muted);
+    text-align: center;
+    transition:
+        border-color var(--transition),
+        background var(--transition);
+}
+
+/* Mirrors the focus ring of the file input it labels, so the
+   whole zone reads as focused when the input is. */
+.drop-zone.is-focused {
+    border-color: var(--primary);
+    background: var(--primary-soft);
+    box-shadow: var(--focus-ring);
+}
+
+.drop-zone.is-dragging {
+    border-color: var(--primary);
+    border-style: solid;
+    background: var(--primary-soft);
+}
+
+.drop-zone.is-invalid {
+    border-color: var(--danger-border);
+    background: var(--danger-soft);
+}
+
+.drop-zone-title {
+    color: var(--text);
+    font-size: var(--text-md);
+    font-weight: var(--weight-semibold);
+}
+
+.drop-zone-separator {
+    color: var(--text-subtle);
+    font-size: var(--text-sm);
+}
+
+.drop-zone-hint {
+    color: var(--text-soft);
+    font-size: var(--text-sm);
+}
+
+/* The input stays in the accessibility tree and focusable.
+   It is not display:none, which would remove it entirely. */
+.file-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+
+/* ----------------------------------------------------------
+   SELECTED FILE
+   ---------------------------------------------------------- */
+
+.file-card {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: var(--space-4);
+    align-items: start;
+    padding: var(--space-4);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+}
+
+.file-preview {
+    width: 132px;
+    height: 92px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface-sunken);
+
+    /* contain, so a portrait or wide document is letterboxed
+       rather than cropped or stretched */
+    object-fit: contain;
+}
+
+.file-meta {
+    min-width: 0;
+}
+
+.file-name {
+    overflow: hidden;
+    color: var(--text);
+    font-weight: var(--weight-medium);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.file-facts {
+    display: flex;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+    margin-top: var(--space-1);
+    color: var(--text-soft);
+    font-size: var(--text-sm);
+}
+
+.file-actions {
+    display: flex;
+    gap: var(--space-2);
+    flex-shrink: 0;
+}
+
+
+/* ----------------------------------------------------------
+   PROCESSING
+   ----------------------------------------------------------
+   Indeterminate only.
+
+   There is deliberately NO progress bar and no percentage.
+   The analyze endpoint is synchronous and reports no stage
+   information, so any number shown here would be invented.
+   ---------------------------------------------------------- */
+
+.processing-panel {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    padding: var(--space-5);
+    border: 1px solid var(--primary-border);
+    border-radius: var(--radius-md);
+    background: var(--primary-soft);
+}
+
+.processing-body {
+    min-width: 0;
+}
+
+.processing-title {
+    color: var(--text);
+    font-weight: var(--weight-semibold);
+}
+
+.processing-message {
+    margin-top: var(--space-1);
+    color: var(--text-soft);
+    font-size: var(--text-sm);
+}
+
+.processing-note {
+    margin-top: var(--space-2);
+    color: var(--text-subtle);
+    font-size: var(--text-xs);
+}
+
+
+/* ----------------------------------------------------------
+   GUIDANCE
+   ---------------------------------------------------------- */
+
+.guidance-list {
+    margin: 0;
+    padding-left: var(--space-5);
+    color: var(--text-soft);
+    font-size: var(--text-sm);
+    line-height: var(--leading-relaxed);
+}
+
+.spec-rows {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.spec-row {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-4);
+    font-size: var(--text-sm);
+}
+
+.spec-label {
+    color: var(--text-soft);
+}
+
+.spec-value {
+    color: var(--text);
+    font-weight: var(--weight-medium);
+    text-align: right;
+}
+
+
+/* ==========================================================
+   DASHBOARD
+   PHASE 8.6B
+   ========================================================== */
+
+/* ----------------------------------------------------------
+   STAT CARD LINK
+   ----------------------------------------------------------
+   Present only on cards that lead somewhere. It sits below
+   the figure so the number stays the largest thing in the
+   card.
+   ---------------------------------------------------------- */
+
+.stat-link {
+    align-self: flex-start;
+    font-size: var(--text-sm);
+    font-weight: var(--weight-medium);
+}
+
+.section-hint-link {
+    font-size: var(--text-sm);
+    font-weight: var(--weight-medium);
+    white-space: nowrap;
+}
+
+
+/* ----------------------------------------------------------
+   METRIC ROW
+   ----------------------------------------------------------
+   Label plus count. Used for breakdowns where a chart would
+   add nothing that the number does not already say.
+   ---------------------------------------------------------- */
+
+.metric-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    padding: var(--space-3) var(--space-5);
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.metric-row:last-child {
+    border-bottom: none;
+}
+
+.metric-row-label {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-width: 0;
+    color: var(--text-soft);
+    font-size: var(--text-base);
+}
+
+.metric-row-value {
+    color: var(--text);
+    font-size: var(--text-md);
+    font-weight: var(--weight-semibold);
+    font-variant-numeric: tabular-nums;
+}
+
+
+/* ----------------------------------------------------------
+   ATTENTION PANEL
+   ----------------------------------------------------------
+   Shown only when there is real pending work. Warning tinted
+   rather than red: pending review is the system working as
+   designed, not a failure.
+   ---------------------------------------------------------- */
+
+.attention-panel {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(200px, 280px);
+    gap: var(--space-6);
+    padding: var(--space-5);
+    background: var(--warning-soft);
+    border: 1px solid var(--warning-border);
+    border-radius: var(--radius-md);
+}
+
+/* A grid item defaults to min-width: auto, so a long word
+   inside it can widen the whole track and push the page
+   sideways. */
+.attention-body {
+    min-width: 0;
+}
+
+.attention-title {
+    margin: 0;
+    color: var(--text);
+    font-size: var(--text-md);
+    font-weight: var(--weight-semibold);
+}
+
+.attention-description {
+    margin: var(--space-2) 0 0;
+    color: var(--text-soft);
+    font-size: var(--text-base);
+    line-height: var(--leading-normal);
+    max-width: 62ch;
+}
+
+.attention-actions {
+    margin-top: var(--space-4);
+}
+
+.attention-metrics {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
+.attention-metrics .metric-row {
+    padding: var(--space-3) var(--space-4);
+}
+
+
+/* ----------------------------------------------------------
+   ALERT ACTIONS
+   ----------------------------------------------------------
+   Retry lives inside the alert that explains the failure, so
+   the control and its reason stay together.
+   ---------------------------------------------------------- */
+
+.alert-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-top: var(--space-4);
+}
+
+
+/* ----------------------------------------------------------
+   TABLE ACTION CELL
+   ---------------------------------------------------------- */
+
+.table-action-cell {
+    text-align: right;
+    white-space: nowrap;
+}
+
+
+/* ==========================================================
+   DOCUMENTS
+   PHASE 8.8B
+   ========================================================== */
+
+/* ----------------------------------------------------------
+   SEARCH FIELD WITH INLINE ACTION
+   ---------------------------------------------------------- */
+
+.input-with-action {
+    display: flex;
+    align-items: stretch;
+    gap: var(--space-2);
+}
+
+.input-with-action .input {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.toolbar-search {
+    flex: 1 1 260px;
+    min-width: 220px;
+}
+
+.toolbar-actions {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--space-2);
+    margin-left: auto;
+}
+
+/* The base .toolbar is designed to sit flush inside a card.
+   The Documents filter bar stands on its own above the table,
+   so it takes a full border and its own radius. */
+form.toolbar {
+    margin-bottom: var(--space-4);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+}
+
+
+/* ----------------------------------------------------------
+   RESULT SUMMARY
+   ----------------------------------------------------------
+   Sits above the table and is an aria-live region, so a
+   filter change is announced rather than only drawn.
+   ---------------------------------------------------------- */
+
+.result-summary {
+    margin: 0 0 var(--space-3);
+    min-height: 1.25rem;
+    color: var(--text-soft);
+    font-size: var(--text-sm);
+}
+
+
+/* ----------------------------------------------------------
+   SORTABLE COLUMN HEADER
+   ----------------------------------------------------------
+   A real button, so the control is focusable and announced.
+   aria-sort on the th carries the current order.
+   ---------------------------------------------------------- */
+
+.sort-button {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 0;
+    color: inherit;
+    font: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+    background: none;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+}
+
+.sort-button:hover {
+    color: var(--text);
+}
+
+.sort-button:focus-visible {
+    outline: var(--focus-outline);
+    outline-offset: 2px;
+}
+
+.sort-indicator {
+    color: var(--text-subtle);
+    font-size: var(--text-xs);
+}
+
+.sort-button.is-active {
+    color: var(--primary);
+}
+
+.sort-button.is-active .sort-indicator {
+    color: var(--primary);
+}
+
+.table thead th[aria-sort="ascending"],
+.table thead th[aria-sort="descending"] {
+    background: var(--primary-soft);
+}
+
+
+/* ----------------------------------------------------------
+   PAGINATION
+   ---------------------------------------------------------- */
+
+.pagination {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--space-4);
+}
+
+.pagination-label {
+    color: var(--text-soft);
+    font-size: var(--text-sm);
+    font-variant-numeric: tabular-nums;
+}
+
+
+/* ==========================================================
+   REVIEW QUEUE
+   PHASE 8.9
+   ========================================================== */
+
+/* The queue's result line sits inside the card, so it needs
+   the card's own horizontal padding. */
+.result-summary-inset {
+    margin: 0;
+    padding: var(--space-3) var(--space-5);
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+
+/* ----------------------------------------------------------
+   REVIEW REASON CHIPS
+   ----------------------------------------------------------
+   The readable reason is the label; the machine code lives in
+   the title attribute so the two never drift apart.
+   ---------------------------------------------------------- */
+
+.reason-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    max-width: 42ch;
+}
+
+.reason-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px var(--space-2);
+    color: var(--text-soft);
+    font-size: var(--text-xs);
+    line-height: 1.5;
+    background: var(--surface-sunken);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: help;
+}
+
+/* A code this build does not recognise is shown, not hidden,
+   and marked so it is obviously new rather than familiar. */
+.reason-chip.is-unknown {
+    color: var(--warning);
+    background: var(--warning-soft);
+    border-color: var(--warning-border);
+}
+
+.reason-chip.is-more {
+    color: var(--text-subtle);
+    background: transparent;
+    border-style: dashed;
+}
+
+
+/* ----------------------------------------------------------
+   BADGE STACK
+   ---------------------------------------------------------- */
+
+.badge-stack {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}
+
+
+/* ==========================================================
+   BATCH UPLOAD
+   PHASE 9.4
+   ==========================================================
+   The mode switch, the selected-file list and the batch
+   summary. Compositions of existing tokens and existing
+   components -- no second design system.
+   ========================================================== */
+
+/* ----------------------------------------------------------
+   MODE SWITCH
+   ----------------------------------------------------------
+   Two real radio inputs styled as a segmented control. The
+   inputs stay in the accessibility tree and focusable; only
+   their default appearance is replaced, so keyboard
+   navigation and announcement come from the platform.
+   ---------------------------------------------------------- */
+
+.mode-switch {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    margin-bottom: var(--space-5);
+    padding-bottom: var(--space-4);
+    border-bottom: 1px solid var(--border);
+}
+
+.mode-switch-label {
+    color: var(--text-soft);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-medium);
+}
+
+.mode-switch-options {
+    display: inline-flex;
+    padding: 2px;
+    background: var(--surface-muted);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+}
+
+/* Visually replaced, not removed: still focusable, still
+   announced, still operable with arrow keys. */
+.mode-switch-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.mode-switch-option {
+    padding: var(--space-2) var(--space-4);
+    color: var(--text-soft);
+    font-size: var(--text-base);
+    font-weight: var(--weight-medium);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+}
+
+.mode-switch-input:checked + .mode-switch-option {
+    color: var(--text);
+    background: var(--surface);
+    box-shadow: var(--shadow-sm);
+}
+
+/* The focus ring has to land on the label, because the input
+   itself is visually replaced. */
+.mode-switch-input:focus-visible + .mode-switch-option {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+}
+
+
+/* ----------------------------------------------------------
+   SELECTED FILES AND RESULTS
+   ---------------------------------------------------------- */
+
+.batch-selection,
+.batch-progress {
+    margin-top: var(--space-5);
+}
+
+.batch-selection-head,
+.batch-progress-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-3);
+    margin-bottom: var(--space-3);
+}
+
+.batch-subtitle {
+    margin: 0;
+    font-size: var(--text-md);
+    font-weight: var(--weight-semibold);
+}
+
+.batch-count {
+    margin: 0;
+    color: var(--text-soft);
+    font-size: var(--text-sm);
+    font-variant-numeric: tabular-nums;
+}
+
+.batch-file-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.batch-file {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+}
+
+.batch-file.is-invalid {
+    background: var(--danger-soft);
+    border-color: var(--danger-border);
+}
+
+/* ==========================================================
+   PHASE 10.3 - DUPLICATE ROWS
+   ==========================================================
+   Neutral, not the danger styling above. A duplicate file is
+   not a bad file: the document already exists, or is already
+   being processed.
+
+   min-width: 0 on the growing track for the same reason as
+   .batch-file-main -- a long unbroken filename would
+   otherwise widen the row and push the page sideways.
+   ========================================================== */
+.batch-duplicate-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin: var(--space-2) 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.batch-duplicate-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    background: var(--neutral-soft);
+    border: 1px solid var(--neutral-border);
+    border-radius: var(--radius-md);
+}
+
+.batch-duplicate-row > span:first-child {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+/* min-width: 0 on the growing track, or a long unbroken
+   filename widens the grid and pushes the page sideways. */
+.batch-file-main {
+    min-width: 0;
+}
+
+.batch-file-name {
+    display: block;
+    overflow-wrap: anywhere;
+    color: var(--text);
+    font-size: var(--text-base);
+    font-weight: var(--weight-medium);
+}
+
+.batch-file-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    margin-top: var(--space-1);
+    color: var(--text-soft);
+    font-size: var(--text-sm);
+}
+
+.batch-file-size {
+    font-variant-numeric: tabular-nums;
+}
+
+.batch-file-state,
+.batch-file-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+/* A reason spans the full row underneath, so it reads as a
+   sentence rather than being squeezed into a column. */
+.batch-file-reason {
+    grid-column: 1 / -1;
+    margin: 0;
+    color: var(--text-soft);
+    font-size: var(--text-sm);
+    line-height: var(--leading-normal);
+}
+
+
+/* ----------------------------------------------------------
+   BATCH SUMMARY
+   ----------------------------------------------------------
+   Real counts per state. No progress bar and no percentage:
+   the pipeline cannot report progress within a document.
+   ---------------------------------------------------------- */
+
+.batch-summary {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: var(--space-2);
+    margin-bottom: var(--space-4);
+}
+
+.batch-summary-cell {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: var(--space-3);
+    background: var(--surface-muted);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+}
+
+.batch-summary-label {
+    color: var(--text-soft);
+    font-size: var(--text-sm);
+}
+
+.batch-summary-value {
+    color: var(--text);
+    font-size: var(--text-lg);
+    font-weight: var(--weight-semibold);
+}
+
+
+/* ==========================================================
+   SPACING
+   PHASE 11.6
+   ==========================================================
+   Four classes, and they exist for a security reason rather
+   than a styling one.
+
+   upload.html carried five inline style="margin-..."
+   attributes. An inline style attribute forces the Content
+   Security Policy to allow
+
+       style-src 'unsafe-inline'
+
+   which is a real weakening: it re-enables the whole class of
+   CSS injection the policy is there to close, for five
+   margins.
+
+   With these, the policy is style-src 'self' with no
+   exception to explain. The values are the existing spacing
+   tokens, so nothing about the rendering changes.
+
+   This is the only utility-style block in the design system.
+   Everything else is a semantic component class, and should
+   stay that way -- these are here to remove an attribute the
+   CSP cannot allow, not to start a utility framework.
+   ========================================================== */
+
+.spacing-top-2 {
+    margin-top: var(--space-2);
+}
+
+.spacing-top-3 {
+    margin-top: var(--space-3);
+}
+
+.spacing-top-4 {
+    margin-top: var(--space-4);
+}
+
+.spacing-bottom-4 {
+    margin-bottom: var(--space-4);
 }

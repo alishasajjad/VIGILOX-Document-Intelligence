@@ -76,6 +76,7 @@ class DocumentRepository:
         content_type: str,
         document_type: str | None,
         processing_status: str = "PROCESSED",
+        source_sha256: str | None = None,
     ) -> DocumentModel:
 
         document = DocumentModel(
@@ -93,6 +94,14 @@ class DocumentRepository:
 
             processing_status=(
                 processing_status
+            ),
+
+            # PHASE 10.3. Keyword-only with a default, so
+            # every existing caller keeps working and stores
+            # null -- which is the honest value for a
+            # document whose source was never fingerprinted.
+            source_sha256=(
+                source_sha256
             ),
         )
 
@@ -116,6 +125,55 @@ class DocumentRepository:
         return self.session.get(
             DocumentModel,
             document_id,
+        )
+
+
+    # ======================================================
+    # SOURCE FINGERPRINT LOOKUP
+    # PHASE 10.3
+    # ======================================================
+
+    def documents_for_source(
+        self,
+        source_sha256: str | None,
+    ) -> list[DocumentModel]:
+
+        """
+        Every document made from these exact bytes, OLDEST
+        FIRST.
+
+        Oldest first because position in this list is the
+        answer to "is this the original or a repeat", and the
+        first element is the original.
+
+        A null or blank fingerprint returns nothing rather
+        than matching every unfingerprinted document. SQL
+        would not match NULL against NULL anyway, but
+        returning early makes the intent explicit and skips
+        the query: "not known" is not a source that can be
+        duplicated.
+        """
+
+        if not source_sha256:
+            return []
+
+
+        return list(
+            self.session.execute(
+                select(
+                    DocumentModel
+                )
+                .where(
+                    DocumentModel.source_sha256
+                    == source_sha256
+                )
+                .order_by(
+                    DocumentModel.created_at.asc(),
+                    DocumentModel.id.asc(),
+                )
+            )
+            .scalars()
+            .all()
         )
     
     # ======================================================
@@ -178,6 +236,15 @@ class DocumentAnalysisRepository:
                     pipeline_result[
                         "extraction"
                     ]
+                ),
+
+                # PHASE 10.1. .get() rather than [], so a
+                # pipeline result produced before quality
+                # assessment existed still persists.
+                quality=(
+                    pipeline_result.get(
+                        "quality"
+                    )
                 ),
 
                 ocr_lines=(

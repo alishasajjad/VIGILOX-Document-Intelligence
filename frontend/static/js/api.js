@@ -316,6 +316,61 @@
             return getJson("/health/ready");
         },
 
+        /* Dashboard aggregation is SQL. One request returns
+           every count on the screen, so the dashboard never
+           issues one request per metric. */
+        getDashboardSummary: function () {
+            return getJsonShared("/api/v1/dashboard/summary");
+        },
+
+        /* Documents list.
+
+           Only keys the caller actually set are appended, so
+           the server applies its own defaults for the rest
+           and the URL stays readable. Values are encoded, so
+           a search term can contain & or = safely.
+
+           page_size is NOT clamped here. The backend rejects
+           an oversized page_size with PAGE_SIZE_TOO_LARGE
+           rather than silently returning fewer rows, and
+           hiding that behind a client clamp would mask a real
+           contract break. */
+        getDocuments: function (params, options) {
+            var p = params || {};
+            var query = [];
+
+            function add(key, value) {
+                if (
+                    value === null ||
+                    value === undefined ||
+                    value === ""
+                ) {
+                    return;
+                }
+                query.push(
+                    key + "=" + encodeURIComponent(value)
+                );
+            }
+
+            add("page", p.page);
+            add("page_size", p.pageSize);
+            add("document_type", p.documentType);
+            add("final_state", p.finalState);
+            add("machine_decision", p.machineDecision);
+            add("expiry_status", p.expiryStatus);
+            add("search", p.search);
+            add("sort", p.sort);
+            add("direction", p.direction);
+
+            return getJson(
+                "/api/v1/documents" +
+                (query.length ? "?" + query.join("&") : ""),
+                {
+                    signal: options ? options.signal : undefined
+                }
+            );
+        },
+
         getReviewQueue: function (filters) {
             var query = [];
             var f = filters || {};
@@ -357,6 +412,19 @@
             });
         },
 
+        /* ==================================================
+           SYNCHRONOUS ANALYZE
+           ==================================================
+           Kept, unchanged, and no longer used by the Upload
+           page. It blocks for the whole pipeline -- an
+           eighteen second median on measured documents -- so
+           the product uses the job endpoints below instead.
+
+           It is still the right call for a script that wants
+           one answer from one request, and nothing about it
+           is deprecated.
+           ================================================== */
+
         analyzeDocument: function (file, options) {
             var form = new global.FormData();
             form.append("file", file);
@@ -366,6 +434,83 @@
                 body: form,
                 signal: options ? options.signal : undefined
             });
+        },
+
+
+        /* ==================================================
+           ASYNC DOCUMENT JOBS
+           ==================================================
+           Submit returns 202 with a job id. Status is polled
+           until the job reports is_terminal.
+
+           Deliberately NOT routed through getJsonShared:
+           that deduplicates concurrent GETs for the same
+           path, which is right for a dashboard summary and
+           wrong here. Two polls of the same job a second
+           apart must be two requests, or the second one
+           returns the first one's stale answer and the page
+           stops updating.
+           ================================================== */
+
+        createDocumentJob: function (file, options) {
+            var form = new global.FormData();
+            form.append("file", file);
+
+            /* PHASE 10.3. Only sent when explicitly asked
+               for, so the default request is unchanged and a
+               caller cannot reprocess by accident. */
+            if (options && options.reprocess === true) {
+                form.append("reprocess", "true");
+            }
+
+            return getJson("/api/v1/document-jobs", {
+                method: "POST",
+                body: form,
+                signal: options ? options.signal : undefined
+            });
+        },
+
+        getDocumentJob: function (jobId, options) {
+            return getJson(
+                "/api/v1/document-jobs/" +
+                    global.encodeURIComponent(jobId),
+                {
+                    signal: options ? options.signal : undefined
+                }
+            );
+        },
+
+        /* Every file goes in one multipart request under the
+           same field name, which is what the endpoint's
+           list[UploadFile] expects. */
+        createDocumentBatch: function (files, options) {
+            var form = new global.FormData();
+            var index = 0;
+
+            for (index = 0; index < files.length; index += 1) {
+                form.append("files", files[index]);
+            }
+
+            /* PHASE 10.3. Same conservative default. */
+            if (options && options.reprocess === true) {
+                form.append("reprocess", "true");
+            }
+
+            return getJson("/api/v1/document-batches", {
+                method: "POST",
+                body: form,
+                signal: options ? options.signal : undefined
+            });
+        },
+
+        getDocumentBatch: function (batchId, options) {
+            return getJson(
+                "/api/v1/document-batches/" +
+                    global.encodeURIComponent(batchId),
+                {
+                    signal: options ? options.signal : undefined
+                }
+            );
         }
     };
 

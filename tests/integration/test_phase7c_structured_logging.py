@@ -1263,7 +1263,68 @@ def test_no_operational_prints_in_source():
     )
 
 
+    # ======================================================
+    # PHASE 9.3
+    # ======================================================
+    #
+    # The rule's purpose is that request-handling and service
+    # code must emit structured logs rather than writing to
+    # stdout. A print() in a service bypasses the formatter's
+    # field whitelist, which is how document contents end up
+    # in a container log.
+    #
+    # A command-line entrypoint is a different thing. When an
+    # operator runs
+    #
+    #     python -m backend.worker --reclaim-only
+    #
+    # a line on their terminal saying how many jobs were
+    # returned to the queue is the command's answer, not
+    # operational logging -- and the same command also logs
+    # the event structurally. scripts/ is not scanned for
+    # exactly this reason; backend/worker.py is the same kind
+    # of file that happens to live in the application package
+    # because it imports the application.
+    #
+    # So the exemption is by explicit filename, never by
+    # pattern or directory. A new file does not become exempt
+    # by being added, and an exempt file still has to prove
+    # its prints carry nothing personal.
+    # ======================================================
+
+    CLI_ENTRYPOINTS = {
+        "worker.py",
+    }
+
+    # Anything that could carry document content or identity.
+    # An exempt file printing one of these is a failure, so
+    # the exemption cannot be used to smuggle PII to stdout.
+    FORBIDDEN_IN_PRINTS = (
+        "filename",
+        "original_filename",
+        "extraction",
+        "ocr",
+        "full_name",
+        "id_number",
+        "licence",
+        "license",
+        "address",
+        "date_of_birth",
+        "notes",
+        "correction",
+        "reviewer",
+        "document_id",
+        "source_name",
+        "source_path",
+        "api_key",
+        "database_url",
+        "password",
+        "token",
+    )
+
     offending = []
+
+    unsafe_cli_prints = []
 
 
     python_files = sorted(
@@ -1276,6 +1337,10 @@ def test_no_operational_prints_in_source():
 
 
     for python_file in python_files:
+
+        is_cli = (
+            python_file.name in CLI_ENTRYPOINTS
+        )
 
         for (
             line_number,
@@ -1294,7 +1359,7 @@ def test_no_operational_prints_in_source():
             )
 
 
-            if (
+            if not (
                 stripped.startswith(
                     "print("
                 )
@@ -1302,11 +1367,85 @@ def test_no_operational_prints_in_source():
                     "print ("
                 )
             ):
+                continue
+
+
+            if not is_cli:
 
                 offending.append(
                     f"{python_file.name}:"
                     f"{line_number}"
                 )
+
+                continue
+
+
+            # An exempt entrypoint still may not print
+            # anything personal. The whole print expression is
+            # examined, not just this line, because these are
+            # multi-line f-strings.
+            block = (
+                python_file
+                .read_text(
+                    encoding="utf-8"
+                )
+                .splitlines()
+            )
+
+            window = " ".join(
+                block[
+                    line_number - 1:
+                    line_number + 8
+                ]
+            ).lower()
+
+            # Cut the window at the closing paren so the next
+            # statement is not scanned as part of this print.
+            depth = 0
+
+            cut = len(
+                window
+            )
+
+            for index, character in enumerate(
+                window
+            ):
+
+                if character == "(":
+                    depth += 1
+
+                elif character == ")":
+                    depth -= 1
+
+                    if depth == 0:
+                        cut = index + 1
+                        break
+
+
+            expression = (
+                window[:cut]
+            )
+
+            for marker in FORBIDDEN_IN_PRINTS:
+
+                if marker in expression:
+
+                    unsafe_cli_prints.append(
+                        f"{python_file.name}:"
+                        f"{line_number} -> {marker}"
+                    )
+
+
+    assert_equal(
+        unsafe_cli_prints,
+        [],
+        (
+            "A command-line entrypoint prints "
+            "something that could carry document "
+            "content or identity. CLI output is "
+            "counts and status only."
+        ),
+    )
 
 
     assert_equal(

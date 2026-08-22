@@ -29,6 +29,31 @@ CONTENT_TYPE_SUFFIXES = {
 }
 
 
+# ==========================================================
+# MAXIMUM UPLOAD SIZE
+# ==========================================================
+#
+# 10 MiB per file.
+#
+# Content-Length is not trusted as the authoritative size --
+# copy_upload_with_limit() counts the actual multipart bytes
+# while streaming them, so a lying header buys nothing.
+#
+# Defined here rather than in main.py because it is an upload
+# rule and because both the synchronous analyze route and the
+# async job routes have to agree on it. Two modules each with
+# their own idea of the limit is how one endpoint quietly
+# accepts what the other rejects.
+#
+# backend.app.main re-exports it, so the existing import path
+# still resolves.
+# ==========================================================
+
+MAX_UPLOAD_BYTES = (
+    10 * 1024 * 1024
+)
+
+
 MAX_FILENAME_LENGTH = (
     255
 )

@@ -209,3 +209,318 @@
         margin-top: var(--space-6);
     }
 }
+
+
+/* ==========================================================
+   UPLOAD
+   PHASE 8.7
+   ========================================================== */
+
+@media (max-width: 1023px) {
+
+    /* Guidance moves below the upload panel rather than
+       competing with it for width. */
+    .upload-layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 767px) {
+
+    .drop-zone {
+        padding: var(--space-8) var(--space-4);
+    }
+
+    /* Preview above the metadata: three columns cannot hold
+       a thumbnail, a filename and two buttons at this width. */
+    .file-card {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .file-preview {
+        width: 100%;
+        height: 160px;
+    }
+
+    .file-actions {
+        width: 100%;
+    }
+
+    .file-actions .btn {
+        flex: 1;
+    }
+}
+
+
+/* ==========================================================
+   DASHBOARD
+   PHASE 8.6B
+   ========================================================== */
+
+@media (max-width: 1023px) {
+
+    /* The priority panel drops below the message rather than
+       squeezing both into an unreadable pair of columns. */
+    .attention-panel {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 767px) {
+
+    .metric-row {
+        padding: var(--space-3) var(--space-4);
+    }
+
+    /* Long filenames must not push the table wider than the
+       viewport. .table-wrap scrolls the table itself, so the
+       page body never scrolls sideways. */
+    .table-wrap {
+        overflow-x: auto;
+    }
+}
+
+
+/* ==========================================================
+   DOCUMENTS
+   PHASE 8.8B
+   ========================================================== */
+
+@media (max-width: 1023px) {
+
+    .toolbar-actions {
+        margin-left: 0;
+    }
+}
+
+@media (max-width: 767px) {
+
+    /* Each control takes a full row rather than being squeezed
+       to an untappable width. */
+    .toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .toolbar-search {
+        min-width: 0;
+
+        /* ------------------------------------------------------
+           flex-basis FOLLOWS THE MAIN AXIS, AND THE AXIS JUST
+           CHANGED.
+           ------------------------------------------------------
+           The base rule is `flex: 1 1 260px`, and 260px there
+           means "260 pixels WIDE" -- correct in the row layout it
+           was written for.
+
+           This block turns the toolbar into a column. The main
+           axis becomes vertical, so that same declaration now
+           reads "260 pixels TALL, and grow to fill". The search
+           field was the only growable item in the column, so it
+           absorbed the leftover space as HEIGHT: about 180px of
+           empty card between the search hint and the first
+           filter.
+
+           Found by rendering the page at 520px and looking at
+           it. No amount of reading the two rules side by side
+           made it visible, because neither is wrong on its own --
+           it is the axis flip between them that changes what the
+           number means.
+           ------------------------------------------------------ */
+        flex: 0 0 auto;
+    }
+
+    .toolbar .field,
+    .toolbar-actions {
+        width: 100%;
+    }
+
+    .toolbar-actions .btn {
+        flex: 1 1 auto;
+    }
+
+    .pagination {
+        justify-content: space-between;
+    }
+}
+
+
+/* ==========================================================
+   REVIEW QUEUE
+   PHASE 8.9
+   ========================================================== */
+
+@media (max-width: 767px) {
+
+    /* Reason chips must wrap inside the cell rather than
+       forcing the table wider. */
+    .reason-chips {
+        max-width: 22ch;
+    }
+
+    .result-summary-inset {
+        padding: var(--space-3) var(--space-4);
+    }
+}
+
+
+/* ==========================================================
+   DOCUMENT WORKSPACE
+   PHASE 8.10 - 8.15
+   ========================================================== */
+
+@media (max-width: 1279px) {
+
+    /* The correction grid drops to one column before the
+       inputs become too narrow to read a licence number in. */
+    .correction-fields {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 1023px) {
+
+    /*
+        The workspace is desktop-first, and on a tablet the
+        source document stops being sticky and simply leads.
+        Sticking a full-width image to the top would leave no
+        room for the values it is meant to be compared with.
+    */
+    .workspace-source {
+        position: static;
+    }
+
+    .source-frame {
+        display: block;
+        width: 100%;
+    }
+
+    .value-row-label {
+        flex: 0 0 100%;
+    }
+}
+
+@media (max-width: 767px) {
+
+    .workspace-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    /* Tabs scroll horizontally inside their own strip rather
+       than wrapping into an unreadable stack. */
+    .tablist {
+        padding: 0 var(--space-2);
+    }
+
+    .tab {
+        padding: var(--space-3);
+        font-size: var(--text-sm);
+    }
+
+    .field-row-body {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    /* Each value gets its own row so a long OCR value never
+       forces the page sideways. */
+    .value-row {
+        flex-direction: column;
+        gap: var(--space-2);
+    }
+
+    .value-row-source {
+        align-self: flex-start;
+    }
+
+    .review-actions .btn {
+        flex: 1 1 auto;
+    }
+
+    .evidence-line {
+        flex-direction: column;
+        gap: var(--space-1);
+    }
+
+    .timeline {
+        padding-left: var(--space-4);
+    }
+
+    .timeline-marker {
+        left: calc(-1 * var(--space-4) - 4px);
+    }
+
+    .raw-json {
+        max-height: 20rem;
+        font-size: 0.625rem;
+    }
+}
+
+
+/* ==========================================================
+   BATCH UPLOAD
+   PHASE 9.4
+   ==========================================================
+   Two things break first on a narrow screen: the six-column
+   summary and the three-column file row. Both are grids, so
+   both reflow rather than scroll.
+
+   Long filenames are handled in components.css with
+   overflow-wrap on the name and min-width: 0 on its track --
+   the wrapping rule belongs with the component, not with a
+   breakpoint, because an unbroken filename overflows at every
+   width.
+   ========================================================== */
+
+@media (max-width: 1023px) {
+
+    .batch-summary {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+
+@media (max-width: 767px) {
+
+    /* The label above the options, so the control has the
+       full width for its two labels. */
+    .mode-switch {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-2);
+    }
+
+    .mode-switch-options {
+        width: 100%;
+    }
+
+    .mode-switch-option {
+        flex: 1 1 0;
+        text-align: center;
+    }
+
+    .batch-summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    /* The row stacks: name and metadata, then the state
+       badge, then the actions. Three narrow columns would
+       leave the filename a few characters wide. */
+    .batch-file {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .batch-file-state,
+    .batch-file-actions {
+        justify-content: flex-start;
+    }
+}
+
+
+@media (max-width: 479px) {
+
+    .batch-summary {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}

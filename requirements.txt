@@ -46,6 +46,18 @@ SQLAlchemy==2.0.52
 # "postgresql+psycopg://" URL.
 psycopg==3.3.4
 
+# Schema migrations (Phase 11.3).
+#
+# A RUNTIME dependency, not a developer convenience: a
+# deployment applies migrations before the application
+# starts, so the tool that applies them ships with it.
+#
+# Replaces scripts/maintenance/create_job_tables.py, which
+# built the schema with create_all() plus hand-written ALTER
+# statements run by hand -- no version, no ordering, no record
+# of what a given database has had applied, and no way back.
+alembic==1.17.2
+
 
 # ----------------------------------------------------------
 # OCR

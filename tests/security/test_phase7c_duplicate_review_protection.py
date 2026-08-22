@@ -755,7 +755,17 @@ def main():
 
         app.state.reviewer_identity = (
             ReviewerIdentityService(
-                mode="trusted_headers"
+                mode="trusted_headers",
+                trusted_proxies=(
+                    # PHASE 11.5. TestClient reports its
+                    # peer as the literal "testclient".
+                    # Naming it here is this test saying
+                    # it stands in for the reverse proxy;
+                    # the network boundary itself is
+                    # tested in
+                    # tests/deployment/test_phase11_security_boundary.py.
+                    "testclient",
+                ),
             )
         )
 

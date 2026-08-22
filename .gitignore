@@ -95,3 +95,16 @@ samples/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# ----------------------------------------------------------
+# TLS MATERIAL
+# PHASE 12.15
+# ----------------------------------------------------------
+# The proxy mounts docker/nginx/tls/ read-only. Nothing in it
+# is ever committed: a private key in a repository is a
+# published private key, and a self-signed certificate that
+# ships is worse than no TLS because it looks like protection.
+#
+# The README is the exception -- it says what to put there.
+docker/nginx/tls/*
+!docker/nginx/tls/README.md

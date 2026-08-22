@@ -48,6 +48,11 @@ HUMAN_REVIEW_UNIQUE_CONSTRAINT = (
 )
 
 
+from backend.app.domain.duplicates import (
+    fingerprint_path,
+)
+
+
 class PersistenceService:
 
     # ======================================================
@@ -147,7 +152,43 @@ class PersistenceService:
         content_type: str,
         pipeline_result: dict,
         source_path: str | Path | None = None,
+        source_sha256: str | None = None,
     ) -> dict:
+
+        """
+        PHASE 10.3 - source_sha256
+
+        Passed in by the worker, which already computed it at
+        job creation, so the async path hashes the bytes once
+        rather than twice.
+
+        Computed here when it was not passed, which is the
+        synchronous /analyze path. Doing it here rather than
+        making every caller responsible means no route can
+        produce a document with no fingerprint and quietly
+        opt that document out of duplicate detection.
+
+        A hash failure is not allowed to fail the save. The
+        document and its analysis are the valuable output;
+        the fingerprint only affects whether a FUTURE upload
+        of the same bytes is recognised.
+        """
+
+        if (
+            source_sha256 is None
+            and source_path is not None
+        ):
+
+            try:
+                source_sha256 = (
+                    fingerprint_path(
+                        source_path
+                    )
+                )
+
+            except OSError:
+                source_sha256 = None
+
 
         document_type = (
             pipeline_result[
@@ -246,6 +287,11 @@ class PersistenceService:
 
                         processing_status=(
                             "PROCESSED"
+                        ),
+
+                        # PHASE 10.3.
+                        source_sha256=(
+                            source_sha256
                         ),
                     )
                 )
