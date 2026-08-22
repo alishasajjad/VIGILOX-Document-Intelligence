@@ -688,6 +688,7 @@ VIGILOX-Document-Intelligence/
 ├── .dockerignore
 ├── .gitattributes
 ├── .gitignore
+├── LICENSE
 └── README.md
 ```
 
