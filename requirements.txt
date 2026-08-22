@@ -3,95 +3,87 @@
 # RUNTIME DEPENDENCIES
 # ==========================================================
 #
-# Python 3.13.9
+# Target Python version: 3.13.9
 #
-# Versions are pinned to the versions this project has been
-# built and verified against.
+# Direct dependencies are pinned to the versions used by the
+# verified VIGILOX development and runtime environment.
 #
-# Install:
+# Setup:
 #
 #     python -m venv .venv
 #     .\.venv\Scripts\Activate.ps1
+#     python -m pip install --upgrade pip
 #     pip install -r requirements.txt
+#
 # ==========================================================
 
 
 # ----------------------------------------------------------
-# API FRAMEWORK
+# API
 # ----------------------------------------------------------
 
 fastapi==0.141.1
 starlette==1.6.0
 uvicorn==0.52.3
 
-# Required by FastAPI to parse multipart/form-data uploads
-# on POST /api/v1/documents/analyze.
+# Multipart/form-data parsing for document upload endpoints.
 python-multipart==0.0.32
 
 
 # ----------------------------------------------------------
-# VALIDATION / SCHEMAS
+# VALIDATION & DATA MODELS
 # ----------------------------------------------------------
 
 pydantic==2.13.4
 
 
 # ----------------------------------------------------------
-# DATABASE
+# DATABASE & MIGRATIONS
 # ----------------------------------------------------------
 
 SQLAlchemy==2.0.52
 
-# PostgreSQL driver used by the SQLAlchemy
-# "postgresql+psycopg://" URL.
+# PostgreSQL driver used by:
+# postgresql+psycopg://
 psycopg==3.3.4
 
-# Schema migrations (Phase 11.3).
-#
-# A RUNTIME dependency, not a developer convenience: a
-# deployment applies migrations before the application
-# starts, so the tool that applies them ships with it.
-#
-# Replaces scripts/maintenance/create_job_tables.py, which
-# built the schema with create_all() plus hand-written ALTER
-# statements run by hand -- no version, no ordering, no record
-# of what a given database has had applied, and no way back.
+# Database schema migrations.
 alembic==1.17.2
 
 
 # ----------------------------------------------------------
-# OCR
+# OCR & IMAGE PROCESSING
 # ----------------------------------------------------------
 
 paddleocr==3.7.0
 paddlepaddle==3.3.1
 
-# Used directly by the image preprocessing pipeline.
 opencv-python==5.0.0.93
 numpy==2.3.5
 pillow==12.3.0
 
 
 # ----------------------------------------------------------
-# LLM EXTRACTION
+# AI / STRUCTURED EXTRACTION
 # ----------------------------------------------------------
 
 groq==1.6.0
 
 
 # ----------------------------------------------------------
-# CONFIGURATION
+# ENVIRONMENT CONFIGURATION
 # ----------------------------------------------------------
 
 python-dotenv==1.2.2
 
 
 # ----------------------------------------------------------
-# TESTING
+# API TEST SUPPORT
 # ----------------------------------------------------------
 #
-# The standalone test suite uses fastapi.testclient.
-# TestClient requires httpx at runtime.
+# FastAPI / Starlette TestClient relies on HTTPX.
+# It is included here because the repository's verification
+# and API test suites use TestClient.
 # ----------------------------------------------------------
 
 httpx==0.28.1

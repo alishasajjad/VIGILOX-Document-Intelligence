@@ -1,8 +1,6 @@
 <div align="center">
 
-<img src="frontend/static/favicon.svg" alt="VIGILOX Logo" width="88">
-
-# VIGILOX
+# 🛡️ VIGILOX
 
 ### AI-Powered Document Intelligence for Security & Compliance
 
@@ -17,6 +15,7 @@
 [![Groq](https://img.shields.io/badge/LLM-Groq-F55036)](https://groq.com/)
 [![Docker](https://img.shields.io/badge/Docker-Configured-2496ED?logo=docker&logoColor=white)](#deployment)
 [![Tests](https://img.shields.io/badge/Deterministic_Gate-72%2F72_Passing-brightgreen)](#testing)
+[![Deployment](https://img.shields.io/badge/Deployment-Cloudflare_Tunnel-F38020?logo=cloudflare&logoColor=white)](#deployment)
 
 <br>
 
@@ -27,7 +26,7 @@
 [API](#api-overview) •
 [Testing](#testing) •
 [Security](#security) •
-[Deployment](#deployment) •
+[Deployment](#-deployment) •
 [Documentation](#documentation)
 
 </div>
@@ -36,7 +35,7 @@
 
 ## Overview
 
-**VIGILOX** is a production-oriented Document Intelligence platform designed for processing security and identity-related documents using OCR, structured AI extraction, evidence validation, deterministic rules, durable background processing, and human review.
+**VIGILOX** is a production-oriented Document Intelligence platform designed for processing security and identity-related documents using OCR, structured AI extraction, evidence validation, deterministic validation rules, durable background processing, and human review.
 
 The system can:
 
@@ -50,13 +49,13 @@ The system can:
 - route uncertain documents for human review
 - preserve machine extraction separately from human corrections
 - produce an authoritative final record
-- maintain a complete audit history
+- maintain an audit history
 
 VIGILOX is built around one core principle:
 
 > **AI output should not become authoritative unless the supporting evidence and validation rules justify it.**
 
-The platform combines machine intelligence, deterministic validation, durable processing, and human oversight instead of treating LLM output as unquestioned truth.
+The platform combines machine intelligence with deterministic validation and human oversight instead of treating LLM output as unquestioned truth.
 
 ---
 
@@ -72,7 +71,7 @@ VIGILOX currently supports:
 
 Document type detection is automatic.
 
-Unsupported or unrelated documents are handled as a separate domain outcome and are never silently treated as valid supported credentials.
+Unsupported or unrelated documents are handled separately and are never silently treated as valid supported credentials.
 
 ---
 
@@ -84,15 +83,16 @@ VIGILOX provides:
 - Single-document processing
 - Batch processing
 - JPG, JPEG, PNG and WEBP support
-- Actual-byte upload size validation
+- Maximum upload-size validation
+- Actual-byte validation
 - Automatic document-type detection
 - PaddleOCR-powered text extraction
 - Groq-powered structured extraction
-- Strict Pydantic schema validation
+- Pydantic schema validation
 - Original source-image preservation
 - Structured machine-readable output
 - Durable PostgreSQL-backed processing jobs
-- Retry and provider backoff handling
+- Retry and provider-backoff handling
 - Human review where required
 
 ---
@@ -113,7 +113,7 @@ Bounding Box Highlight
 
 The reviewer can inspect the original document and highlight the exact OCR evidence associated with an extracted value.
 
-This makes extraction auditable instead of presenting AI output as an unexplained black box.
+This makes extraction results auditable instead of presenting AI output as an unexplained black box.
 
 ---
 
@@ -135,13 +135,13 @@ Document Image Endpoint
 Review Workspace
 ```
 
-For successfully persisted documents, the Review Workspace loads the source directly from the same-origin image endpoint:
+For successfully persisted documents, the Review Workspace loads the source directly from:
 
 ```text
 /api/v1/documents/{document_id}/image
 ```
 
-If an older or incomplete record genuinely has no source file, the UI presents a controlled unavailable state instead of leaving a broken browser image.
+The source document remains available independently of the structured extraction result.
 
 ---
 
@@ -149,7 +149,7 @@ If an older or incomplete record genuinely has no source file, the UI presents a
 
 VIGILOX performs deterministic image-quality measurements.
 
-Current measured findings include:
+Current findings include:
 
 - `IMAGE_BLURRY`
 - `IMAGE_UNREADABLE`
@@ -158,11 +158,9 @@ Current measured findings include:
 - `ROTATION_CONCERN`
 - `IMAGE_TOO_SMALL`
 
-`IMAGE_LOW_CONTRAST` was intentionally not shipped because measurement showed the tested metric was unreliable on the available corpus.
+Quality findings can make automatic processing more conservative.
 
-Quality signals are designed to make machine routing more conservative.
-
-They may escalate:
+For example:
 
 ```text
 AUTO_ACCEPT
@@ -170,47 +168,29 @@ AUTO_ACCEPT
 REVIEW_REQUIRED
 ```
 
-but cannot clear an existing review requirement.
-
-### Quality Calibration Scope
-
-Current thresholds were calibrated using the available VIGILOX evaluation corpus and controlled image degradations.
-
-They should not be interpreted as universal physical-image quality thresholds for every camera, scanner, lighting condition, or production population.
+A quality finding can escalate a document for review but does not clear an existing review requirement.
 
 ---
 
 ## Confidence Interpretation
 
-VIGILOX uses **field-level confidence** based primarily on OCR/evidence support.
+VIGILOX uses **field-level confidence** primarily to communicate OCR and evidence support.
 
-Confidence is **not treated as a calibrated probability that a semantic field is correct**.
-
-A value may have extremely strong OCR evidence while still being assigned to the wrong semantic field.
+Confidence is not treated as a calibrated probability that a semantic field is correct.
 
 For example:
 
 ```text
 OCR reads a date correctly
         ↓
-High OCR confidence
+Strong OCR confidence
         ↓
-Extraction assigns it to wrong date field
+Extraction assigns it to the wrong field
 ```
 
-Therefore VIGILOX does not generate a misleading document-level confidence percentage.
+A field can therefore have strong OCR support while still being semantically incorrect.
 
-### Calibration Finding
-
-Confidence calibration analysis showed that higher field confidence did not reliably imply higher semantic correctness on the available benchmark.
-
-The product therefore presents confidence as:
-
-> **OCR and evidence support strength**
-
-and not as:
-
-> **probability that the extracted field is correct**
+For this reason VIGILOX does not generate a misleading document-level confidence percentage.
 
 ---
 
@@ -236,15 +216,15 @@ Findings
 Machine Decision
 ```
 
-Documents that cannot be safely accepted automatically are routed according to authoritative machine decision rules.
+Documents that cannot be safely accepted automatically are routed for human review according to the machine decision rules.
 
 ---
 
 # Unsupported Documents
 
-A successfully identified unsupported document is treated as a **domain outcome**, not an infrastructure failure.
+A successfully identified unsupported document is treated as a domain outcome rather than an infrastructure failure.
 
-Typical semantics:
+Typical result:
 
 ```text
 Job Status:
@@ -259,30 +239,24 @@ false
 Usable:
 false
 
-Retryable:
-false
-
 Effective Record:
 none
 ```
 
 Unsupported documents:
 
-- can never auto-accept
+- cannot become automatically accepted supported records
 - do not become usable final records
-- do not automatically pollute the normal Review Queue
-- remain auditable/discoverable where appropriate
-- are not described using fraud, tamper, or suspicion language
+- remain represented as a completed processing outcome
+- remain separate from normal supported-document decisioning
 
-Quality and classification remain separate concepts.
-
-A blurry supported licence does not automatically become an unsupported document.
+Quality assessment and document classification remain separate concerns.
 
 ---
 
 # Duplicate Detection
 
-VIGILOX computes a SHA-256 fingerprint over the **original uploaded bytes**.
+VIGILOX computes a SHA-256 fingerprint over the original uploaded bytes.
 
 ```text
 Original Upload
@@ -305,37 +279,18 @@ DUPLICATE_IN_PROGRESS
 
 Concurrent active duplicates are protected at the PostgreSQL level using an active-job partial unique index.
 
-This avoids unsafe:
-
-```text
-check
-then insert
-```
-
-race conditions.
-
-### Duplicate Policy
-
-Default behavior avoids unnecessary reprocessing.
-
-A deliberate reprocess may be requested explicitly where supported.
-
-The source fingerprint remains identical because the original bytes remain identical.
-
-The hash is not exposed through normal public API or UI payloads.
+The source fingerprint is not exposed through the normal public API or user interface.
 
 ---
 
 # Batch Processing
 
-VIGILOX supports both single and batch document workflows.
+VIGILOX supports both single-document and batch workflows.
 
 ## Single Document
 
 ```text
 Select File
-   ↓
-Preview
    ↓
 Create Durable Job
    ↓
@@ -360,11 +315,10 @@ Batch functionality includes:
 - Independent child job states
 - Partial success
 - Duplicate handling
-- Invalid-file preservation
 - Completed-document links
 - Failure isolation
 
-One invalid or failed file does not invalidate successful siblings.
+One invalid or failed file does not invalidate successful sibling files.
 
 ---
 
@@ -399,13 +353,13 @@ Completed Document
 
 Processing is independent of the browser session.
 
-The browser may close while the server-side job continues.
+The browser does not act as the job queue.
 
 ---
 
 ## Job States
 
-The durable job model uses a deliberately small state set:
+The durable job model uses:
 
 ```text
 QUEUED
@@ -415,7 +369,7 @@ COMPLETED
 FAILED
 ```
 
-`current_stage` provides advisory processing context without inventing fake progress percentages.
+`current_stage` provides processing context without displaying artificial progress percentages.
 
 ---
 
@@ -427,23 +381,20 @@ Workers claim jobs using PostgreSQL row locking:
 FOR UPDATE SKIP LOCKED
 ```
 
-This allows multiple workers to compete safely for available jobs.
+This allows multiple workers to compete safely for available jobs without processing the same queued job concurrently.
 
-Worker leases protect against dead or abandoned workers.
-
-A stale worker cannot silently overwrite the authoritative completion produced by a newer lease owner.
+Worker leases are used for recovery when processing is interrupted.
 
 ---
 
 ## Retry Handling
 
-Infrastructure/provider failures are separated from structured-output recovery.
+Infrastructure/provider failures are handled separately from structured-output recovery.
 
 Typical behavior:
 
 ```text
 429 Rate Limit
-→ Job-level retry
 → RETRY_WAIT
 → Retry-After respected
 
@@ -452,14 +403,13 @@ Typical behavior:
 → Backoff
 
 Malformed Structured Output
-→ Bounded extraction-level recovery
+→ Bounded extraction recovery
 
 Unsupported Document
-→ Valid domain outcome
-→ No provider retry
+→ Completed domain outcome
 ```
 
-Retries are bounded and cannot continue indefinitely.
+Retries are bounded.
 
 When configured attempts are exhausted:
 
@@ -480,7 +430,7 @@ The reviewer workspace provides:
 - OCR evidence overlays
 - Extracted fields
 - Field confidence
-- Image quality
+- Image-quality information
 - Validation findings
 - Final record state
 - Technical information
@@ -527,7 +477,7 @@ VIGILOX keeps machine analysis separate from the final authoritative record.
 
 Machine extraction remains immutable.
 
-Human corrections are applied as an overlay rather than rewriting the original machine extraction.
+Human corrections are applied as an overlay instead of rewriting the original machine extraction.
 
 ---
 
@@ -543,14 +493,9 @@ The Dashboard provides operational visibility into:
 - Validity and expiry state
 - Operational service state
 
-Dashboard metrics are calculated from real PostgreSQL data.
+Dashboard values are calculated from PostgreSQL data.
 
-The application does not display fabricated:
-
-- AI accuracy scores
-- fraud probabilities
-- tamper probabilities
-- generic risk percentages
+The application does not generate fabricated fraud, tamper, risk, or document-confidence percentages.
 
 ---
 
@@ -567,7 +512,7 @@ The Documents page supports:
 - Document-ID search
 - Deterministic sorting
 
-Sensitive OCR contents and extracted personal values are intentionally excluded from general search.
+Sensitive OCR contents and extracted personal values are intentionally excluded from global document search.
 
 ---
 
@@ -582,15 +527,6 @@ Sensitive OCR contents and extracted personal values are intentionally excluded 
 │ Documents                            │
 │ Review Queue                         │
 │ Document Workspace                   │
-└───────────────────┬──────────────────┘
-                    │
-                    ▼
-┌──────────────────────────────────────┐
-│               Nginx                  │
-│                                      │
-│ Reverse Proxy                        │
-│ Rate Limits                          │
-│ Security Boundary                    │
 └───────────────────┬──────────────────┘
                     │
                     ▼
@@ -645,7 +581,7 @@ Sensitive OCR contents and extracted personal values are intentionally excluded 
 
 ## Database
 
-- PostgreSQL
+- PostgreSQL 18
 - Alembic migrations
 
 ## AI & OCR
@@ -668,6 +604,7 @@ Sensitive OCR contents and extracted personal values are intentionally excluded 
 - Docker Compose
 - Nginx
 - PostgreSQL-backed durable worker queue
+- Cloudflare Quick Tunnel
 
 ---
 
@@ -690,16 +627,21 @@ VIGILOX-Document-Intelligence/
 │   ├── database.py
 │   ├── models.py
 │   ├── repositories.py
-│   └── job_repositories.py
+│   ├── job_repositories.py
+│   └── summary_repositories.py
 │
 ├── migrations/
+│   ├── env.py
+│   └── versions/
 │
 ├── frontend/
 │   ├── pages/
 │   └── static/
 │       ├── css/
 │       ├── js/
-│       └── favicon.svg
+│       ├── favicon.svg
+│       ├── favicon.ico
+│       └── apple-touch-icon.png
 │
 ├── tests/
 │   ├── api/
@@ -709,33 +651,34 @@ VIGILOX-Document-Intelligence/
 │   ├── integration/
 │   ├── intelligence/
 │   ├── jobs/
+│   ├── real_dependencies/
 │   ├── security/
 │   ├── storage/
 │   └── unit/
 │
 ├── evaluation/
 │   ├── archive/
-│   └── reports/
+│   ├── reports/
+│   └── results/
 │
 ├── scripts/
 │   ├── development/
+│   ├── evaluation/
+│   ├── maintenance/
 │   └── verification/
 │
 ├── docs/
+│   ├── api/
 │   ├── architecture/
 │   ├── deployment/
-│   ├── operations/
-│   ├── security/
 │   ├── evaluation/
-│   └── release/
+│   ├── operations/
+│   ├── release/
+│   └── security/
 │
 ├── docker/
 │   ├── entrypoint.sh
 │   └── nginx/
-│
-├── storage/
-├── samples/
-├── output/
 │
 ├── Dockerfile
 ├── docker-compose.yml
@@ -743,10 +686,10 @@ VIGILOX-Document-Intelligence/
 ├── requirements.txt
 ├── .env.example
 ├── .dockerignore
+├── .gitattributes
+├── .gitignore
 └── README.md
 ```
-
-> The exact repository tree may evolve as operational documentation and release artifacts are refined.
 
 ---
 
@@ -760,17 +703,16 @@ Install:
 - PostgreSQL
 - Git
 
-Optional for container deployment:
+For the public tunnel:
 
-- Docker
-- Docker Compose
+- `cloudflared`
 
 ---
 
 ## 1. Clone the Repository
 
 ```bash
-git clone <YOUR_REPOSITORY_URL>
+git clone https://github.com/alishasajjad/VIGILOX-Document-Intelligence.git
 cd VIGILOX-Document-Intelligence
 ```
 
@@ -810,19 +752,28 @@ to:
 .env
 ```
 
-Configure the required settings.
+On Windows:
 
-Typical examples include:
+```powershell
+Copy-Item .env.example .env
+```
+
+Configure required values.
+
+Typical configuration:
 
 ```env
 DATABASE_URL=postgresql+psycopg://USER:PASSWORD@HOST:PORT/DATABASE
 GROQ_API_KEY=your_groq_api_key
+VIGILOX_GROQ_MODEL=openai/gpt-oss-20b
 ```
 
-The production extraction model defaults to:
+Development reviewer identity can be configured with:
 
 ```env
-VIGILOX_GROQ_MODEL=openai/gpt-oss-20b
+VIGILOX_REVIEW_IDENTITY_MODE=local_env
+VIGILOX_LOCAL_REVIEWER_ID=local-reviewer
+VIGILOX_LOCAL_REVIEWER_ROLE=REVIEWER
 ```
 
 See `.env.example` for the complete configuration reference.
@@ -833,7 +784,7 @@ See `.env.example` for the complete configuration reference.
 
 # Database Setup
 
-Apply all migrations:
+Apply migrations:
 
 ```powershell
 python -m alembic upgrade head
@@ -845,17 +796,36 @@ Check the current revision:
 python -m alembic current
 ```
 
-Check for model/schema drift:
+Check model/schema drift:
 
 ```powershell
 python -m alembic check
 ```
 
-Production schema management should use Alembic migrations rather than ORM `create_all()`.
-
 ---
 
-# Start the API
+# Running VIGILOX Locally
+
+The complete application uses:
+
+```text
+PostgreSQL
+    +
+FastAPI API
+    +
+Background Worker
+```
+
+## Terminal 1 — Start the API
+
+```powershell
+cd C:\path\to\VIGILOX-Document-Intelligence
+.\.venv\Scripts\Activate.ps1
+
+python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
+```
+
+For development with auto-reload:
 
 ```powershell
 python -m uvicorn backend.app.main:app --reload
@@ -869,24 +839,36 @@ http://127.0.0.1:8000
 
 ---
 
-# Start the Worker
-
-Open a second terminal:
+## Terminal 2 — Start the Worker
 
 ```powershell
-cd VIGILOX-Document-Intelligence
+cd C:\path\to\VIGILOX-Document-Intelligence
 .\.venv\Scripts\Activate.ps1
 
 python -m backend.worker
 ```
 
-The worker initializes the OCR pipeline and claims durable jobs independently of browser sessions.
+The worker initializes the OCR pipeline and processes durable PostgreSQL jobs independently of browser sessions.
+
+---
+
+## Verify Local Health
+
+```powershell
+Invoke-WebRequest http://127.0.0.1:8000/health -UseBasicParsing
+```
+
+Expected:
+
+```text
+StatusCode : 200
+```
 
 ---
 
 # Web Interface
 
-| Page | URL |
+| Page | Route |
 |---|---|
 | Dashboard | `/dashboard` |
 | Upload Document | `/upload` |
@@ -894,14 +876,13 @@ The worker initializes the OCR pipeline and claims durable jobs independently of
 | Review Queue | `/review` |
 | Document Workspace | `/review/{document_id}` |
 
-Browser tabs use VIGILOX branding and page-specific titles such as:
+Local examples:
 
 ```text
-Dashboard · VIGILOX
-Upload Document · VIGILOX
-Documents · VIGILOX
-Review Queue · VIGILOX
-Document Review · VIGILOX
+http://127.0.0.1:8000/dashboard
+http://127.0.0.1:8000/upload
+http://127.0.0.1:8000/documents
+http://127.0.0.1:8000/review
 ```
 
 ---
@@ -934,14 +915,14 @@ GET /health/ready
 
 Readiness verifies critical runtime dependencies without running OCR or calling the external AI provider.
 
-Typical dependencies include:
+Typical checks include:
 
 - PostgreSQL
 - Managed storage
 - Service configuration
 - Database connection capacity
 
-Worker availability is monitored separately from API readiness.
+Worker health is tracked independently.
 
 ---
 
@@ -970,9 +951,9 @@ GET  /api/v1/documents/{document_id}/image
 GET  /api/v1/dashboard/summary
 ```
 
-A synchronous analysis endpoint is retained for compatibility where required.
+The primary browser workflow uses asynchronous document jobs.
 
-The primary production browser flow uses asynchronous jobs.
+A synchronous analysis endpoint is also retained for compatibility.
 
 ---
 
@@ -998,8 +979,6 @@ Request identifiers are generated server-side and returned through:
 X-Request-ID
 ```
 
-Error messages avoid exposing secrets, storage paths, or unnecessary internal details.
-
 ---
 
 # Security
@@ -1015,35 +994,35 @@ VIGILOX includes multiple defensive layers.
 - Safe identifiers
 - Path traversal protection
 - Symlink rejection
-- Controlled error contracts
+- Controlled API error contracts
 
 ---
 
 ## Reviewer Identity
 
-Production reviewer identity may be established through a trusted reverse proxy.
+Development can use:
 
-Reviewer identity headers are accepted only from explicitly configured trusted proxy sources.
+```env
+VIGILOX_REVIEW_IDENTITY_MODE=local_env
+```
 
-Production fails closed when trusted-header authentication is configured unsafely.
+Production reviewer identity support is implemented through trusted reverse-proxy headers.
 
-Direct clients cannot safely elevate themselves by supplying privileged reviewer headers.
+Reviewer identity remains server-authoritative.
 
 ---
 
 ## Authorization
 
-Reviewer actions remain server-authoritative.
+Reviewer actions are validated on the server.
 
 Frontend visibility does not replace backend authorization.
-
-Roles are enforced by the application according to the configured reviewer identity model.
 
 ---
 
 ## Browser Security
 
-VIGILOX applies security headers including controls such as:
+The application applies security controls including:
 
 - Content Security Policy
 - `X-Content-Type-Options`
@@ -1052,9 +1031,7 @@ VIGILOX applies security headers including controls such as:
 - Permissions Policy
 - Cross-Origin Opener Policy
 
-The frontend uses same-origin JavaScript, CSS, and document image resources.
-
-Unsafe inline JavaScript and inline event handlers are avoided.
+The frontend uses same-origin JavaScript, CSS, API, and document resources.
 
 ---
 
@@ -1062,21 +1039,15 @@ Unsafe inline JavaScript and inline event handlers are avoided.
 
 The primary application is same-origin.
 
-CORS is disabled unless explicitly required.
-
-Wildcard production origins are rejected.
+CORS is configurable for deployments where a different frontend origin is required.
 
 ---
 
 ## Rate Limiting
 
-Expensive write operations can be rate limited.
+Upload endpoints include application-level rate-limiting support.
 
-The application-level limiter is intentionally process-local and should be treated as defense-in-depth.
-
-For multi-process production deployment, Nginx provides deployment-level request limiting.
-
-Job-status polling is not treated the same way as expensive upload endpoints.
+Nginx configuration is also included for deployment-level request controls.
 
 ---
 
@@ -1089,8 +1060,6 @@ Pending Job Storage
         ≠
 Managed Document Storage
 ```
-
-This prevents in-flight files from being incorrectly classified as managed-storage orphans.
 
 Storage protections include:
 
@@ -1130,7 +1099,7 @@ This allows the system to answer:
 
 VIGILOX provides structured operational logging without logging full document contents.
 
-Logging avoids:
+Operational logging avoids:
 
 - OCR text
 - extracted PII
@@ -1139,7 +1108,7 @@ Logging avoids:
 - reviewer correction contents
 - managed filesystem paths
 
-Useful operational events include:
+Examples of operational events include:
 
 ```text
 worker.starting
@@ -1152,33 +1121,28 @@ job.completed
 
 # Metrics
 
-Operational metrics are designed to avoid uncontrolled label cardinality.
+Operational metrics include areas such as:
 
-Useful metric categories include:
-
-- HTTP request volume
+- HTTP requests
 - HTTP latency
-- Job queue depth
-- Job state counts
-- Job completion/failure counts
-- Worker processing duration
-- OCR duration
-- LLM duration
+- Job queue state
+- Job completion/failure
+- Worker activity
+- OCR processing
+- LLM processing
 - Provider rate-limit events
 - Batch outcomes
 - Worker heartbeat
 
-Identifiers such as document IDs, filenames, and reviewer identities are not used as arbitrary high-cardinality metric labels.
-
-Metrics exposure is configurable in production.
+High-cardinality document identifiers and filenames are not used as metric labels.
 
 ---
 
 # Worker Health
 
-Worker health is independent of API readiness.
+Worker health is tracked independently from API readiness.
 
-The system distinguishes conditions such as:
+Worker-health states include:
 
 ```text
 HEALTHY
@@ -1186,13 +1150,13 @@ STALE
 NO_WORKER
 ```
 
-A running API therefore does not falsely imply that a functioning worker is available.
+This keeps API availability and background-processing availability separate.
 
 ---
 
 # Testing
 
-VIGILOX contains deterministic:
+VIGILOX contains:
 
 - Unit tests
 - Integration tests
@@ -1207,7 +1171,7 @@ VIGILOX contains deterministic:
 - Deployment configuration tests
 - End-to-end regression tests
 
-Run the standard deterministic regression gate:
+Run the deterministic regression suite:
 
 ```powershell
 python scripts/verification/run_phase7c7g_regressions.py --exclude-real
@@ -1222,32 +1186,29 @@ BLOCKED : 0
 MISSING : 0
 ```
 
-> `--exclude-real` intentionally excludes six real-dependency suites. It proves the deterministic release gate, not the complete external-provider release gate.
+The `--exclude-real` mode separates deterministic tests from suites that require real external dependencies.
 
 ---
 
 ## Real Dependency Tests
 
-When external dependencies and provider quota are available:
+When external provider quota and required dependencies are available:
 
 ```powershell
 python scripts/verification/run_phase7c7g_regressions.py --only-real
 ```
 
-Real-provider suites are separated because they use:
+These suites use real components including:
 
-- Real PaddleOCR
-- Real Groq API
-- Real PostgreSQL
-- External provider quota
-
-They should not be executed repeatedly without reason.
+- PaddleOCR
+- Groq API
+- PostgreSQL
 
 ---
 
 # Evaluation
 
-VIGILOX includes an evaluation framework for comparing extracted values against labelled document fixtures.
+VIGILOX includes an evaluation framework for comparing extraction output against labelled document fixtures.
 
 Evaluation metrics include:
 
@@ -1260,43 +1221,56 @@ Evaluation metrics include:
 - Machine decision distribution
 - False automatic acceptance
 
-A release-critical invariant is:
+A critical evaluation invariant is:
 
 ```text
 False AUTO_ACCEPT = 0
 ```
 
-Historical evaluation artifacts are archived before new final reports are generated.
+Historical evaluation artifacts are archived alongside the evaluation framework.
+
+---
+
+## Historical Evaluation Baseline
+
+Historical benchmark results include:
+
+```text
+Document type accuracy           100%
+Exact field accuracy             95.92%
+Normalized field accuracy        98.64%
+Known-field normalized accuracy  98.49%
+Fully correct documents          93.65%
+False AUTO_ACCEPT                0
+```
 
 ---
 
 ## Critical-Field Baseline Correction
 
-An earlier evaluation implementation maintained a separate critical-field definition and omitted production-critical `issuer` fields for relevant document types.
+An earlier evaluation metric maintained a separate critical-field definition and omitted the production-critical `issuer` field.
 
-The originally reported historical metric was:
+The earlier metric was:
 
 ```text
 99.40% (167 / 168)
 ```
 
-After aligning evaluation with the authoritative production definition, the corrected historical baseline became:
+After aligning evaluation with the authoritative production definition:
 
 ```text
 99.05% (208 / 210)
 ```
 
-This difference reflects a **metric-definition correction**, not a model regression.
-
-Evaluation and production now share the authoritative critical-field definition.
+This was a metric-definition correction rather than a model regression.
 
 ---
 
 # Performance
 
-Phase 9 performance measurement showed that OCR remains the dominant local processing cost.
+Measured architecture behavior showed that OCR is the dominant local processing cost.
 
-Measured behavior included:
+Representative measurements include:
 
 ```text
 POST /document-jobs
@@ -1314,61 +1288,166 @@ Previous synchronous pipeline
 median ≈ 18.4 s
 ```
 
-The async architecture therefore improves **API and user-facing responsiveness**.
-
-It does not claim to make CPU OCR processing itself dramatically faster.
+The asynchronous architecture improves API and browser responsiveness by moving OCR and extraction work into durable background processing.
 
 ---
 
-# Pipeline Initialization
+# 🚀 Deployment
 
-API and worker initialization are intentionally separable.
+VIGILOX has been publicly deployed and tested using **Cloudflare Quick Tunnel**.
 
-Measured startup behavior showed that lazy API pipeline initialization can significantly reduce API startup time, while workers benefit from loading OCR before claiming jobs.
+The deployed flow is:
 
-The deployment configuration should choose initialization behavior deliberately.
+```text
+Internet
+   ↓
+Cloudflare Quick Tunnel
+   ↓
+FastAPI
+   ↓
+PostgreSQL
+   ↑
+Background Worker
+   ↓
+PaddleOCR + Groq
+```
+
+Cloudflare creates an HTTPS `trycloudflare.com` address for the running application.
+
+The generated URL is intentionally not stored in this README because a tunnel session creates its own address.
 
 ---
 
-# Deployment
+## Verified Deployment Flow
 
-VIGILOX includes:
+The public deployment was tested through this complete workflow:
+
+```text
+Public HTTPS Access
+        ↓
+Dashboard
+        ↓
+Document Upload
+        ↓
+Durable Job
+        ↓
+Background Worker
+        ↓
+PaddleOCR
+        ↓
+Groq Extraction
+        ↓
+Validation
+        ↓
+PostgreSQL Persistence
+        ↓
+Document Workspace
+        ↓
+Original Document
+        ↓
+Evidence Highlighting
+        ↓
+Human Review
+        ↓
+Final Record
+        ↓
+Audit History
+```
+
+The public tunnel was used to verify:
+
+- Dashboard
+- Upload Document
+- Documents
+- Review Queue
+- Document Workspace
+- OCR processing
+- Structured extraction
+- Original-document rendering
+- Evidence highlighting
+- Human review
+- Final-state persistence
+- Audit information
+
+---
+
+# Running the Cloudflare Deployment
+
+Before starting the public tunnel, make sure PostgreSQL is running.
+
+Three terminals are then used.
+
+## Terminal 1 — API
+
+```powershell
+cd C:\path\to\VIGILOX-Document-Intelligence
+.\.venv\Scripts\Activate.ps1
+
+python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
+```
+
+---
+
+## Terminal 2 — Worker
+
+```powershell
+cd C:\path\to\VIGILOX-Document-Intelligence
+.\.venv\Scripts\Activate.ps1
+
+python -m backend.worker
+```
+
+---
+
+## Terminal 3 — Cloudflare Tunnel
+
+Using the 64-bit Windows `cloudflared` executable:
+
+```powershell
+cd $env:USERPROFILE\Downloads
+
+.\cloudflared-windows-amd64.exe tunnel `
+  --protocol http2 `
+  --url http://127.0.0.1:8000
+```
+
+Cloudflare prints a generated HTTPS address similar to:
+
+```text
+https://generated-name.trycloudflare.com
+```
+
+Use that generated address to open VIGILOX.
+
+For example:
+
+```text
+https://generated-name.trycloudflare.com/dashboard
+https://generated-name.trycloudflare.com/upload
+https://generated-name.trycloudflare.com/documents
+https://generated-name.trycloudflare.com/review
+```
+
+The API, worker, PostgreSQL, and Cloudflare tunnel remain running while the demonstration environment is being used.
+
+---
+
+# Docker Configuration
+
+The repository also includes:
 
 - `Dockerfile`
 - `.dockerignore`
-- Docker Compose configuration
-- Nginx reverse proxy configuration
+- `docker-compose.yml`
+- Nginx configuration
 - API role
 - Worker role
 - Migration role
-- PostgreSQL service
-- Persistent document storage
-- Persistent pending-job storage
+- PostgreSQL configuration
+- Managed-storage configuration
+- Pending-storage configuration
 
-Conceptually:
-
-```text
-Public Traffic
-     ↓
-   Nginx
-     ↓
-   FastAPI
-     ↓
- PostgreSQL
-     ↑
-   Worker
-
-Managed Storage
-Pending Storage
-```
-
-The backend API is not intended to be directly exposed publicly when production identity depends on the trusted reverse-proxy boundary.
-
----
-
-## Docker Roles
-
-A single application image supports operational roles such as:
+The same application image supports roles such as:
 
 ```text
 api
@@ -1376,125 +1455,53 @@ worker
 migrate
 ```
 
-This keeps API, worker, and migration code aligned to the same application build.
+This keeps application code aligned across deployment responsibilities.
 
 ---
 
-## Docker Validation Status
+# Database Migrations
 
-Docker and Compose configuration are included and covered by deterministic/static deployment tests.
-
-Current verified state:
-
-```text
-Dockerfile / Compose Configuration     ✅
-Static Deployment Contracts            ✅
-Nginx Configuration Contracts          ✅
-Application Container Runtime Build    ⚠️ Not executed in the development environment
-```
-
-The final Docker image build and production-stack smoke test should be performed on a host where Docker is available.
-
----
-
-# Database Migrations in Production
-
-Run migrations before starting a new application version:
+Apply migrations with:
 
 ```bash
 alembic upgrade head
 ```
 
-Verify state:
+Verify:
 
 ```bash
 alembic current
 alembic check
 ```
 
-Production deployments should not depend on automatic ORM table creation.
-
 ---
 
 # Backup & Restore
 
-VIGILOX includes operational guidance for backing up:
+Operational backup and restore tooling is included for:
 
 - PostgreSQL
 - Managed document storage
-- Pending retryable job sources
+- Pending job source storage
 
-Database rows and document files are related and should be backed up using a coordinated operational procedure.
-
-A database dump and unrelated filesystem copy should not automatically be assumed transactionally consistent.
-
-See the operational documentation under:
+Documentation:
 
 ```text
-docs/operations/
+docs/operations/backup-restore.md
 ```
 
 ---
 
 # Graceful Shutdown
 
-The API and worker are designed for controlled shutdown.
+The API and worker include controlled shutdown behavior.
 
-Workers should:
+The worker can:
 
 - stop claiming new jobs
-- avoid falsely completing interrupted work
-- release/close database resources
-- allow lease-based recovery where processing is interrupted
-
-Durable job state remains represented in PostgreSQL.
-
----
-
-# Deployment Checklist
-
-Before exposing a production deployment:
-
-```text
-[ ] Production .env configured
-[ ] GROQ_API_KEY configured
-[ ] DATABASE_URL configured
-[ ] PostgreSQL reachable
-
-[ ] Alembic upgrade head completed
-[ ] Alembic current verified
-[ ] Alembic check clean
-
-[ ] API starts successfully
-[ ] Worker starts successfully
-[ ] Reverse proxy starts successfully
-
-[ ] /health returns 200
-[ ] /health/ready returns ready
-[ ] Worker health verified
-
-[ ] Dashboard loads
-[ ] Upload page loads
-[ ] Documents page loads
-[ ] Review Queue loads
-[ ] Document Workspace loads
-
-[ ] VIGILOX favicon renders
-[ ] Static JS/CSS load correctly
-[ ] Original document image renders
-[ ] Evidence highlighting works
-
-[ ] Duplicate detection works
-[ ] Unsupported-document behavior works
-[ ] Human review works
-
-[ ] Deterministic regression gate passes
-[ ] Production secrets are not committed
-[ ] Reverse-proxy identity boundary is configured
-[ ] Rate limiting is configured
-[ ] Backup strategy is verified
-[ ] Docker/runtime smoke test completed on deployment host
-```
+- preserve durable job state
+- release database resources
+- allow interrupted work to recover according to lease rules
 
 ---
 
@@ -1509,13 +1516,11 @@ python -m alembic current
 python -m alembic check
 ```
 
-Verify:
+Verify the configured:
 
 ```text
 DATABASE_URL
 ```
-
-and other required configuration.
 
 ---
 
@@ -1539,15 +1544,13 @@ Check:
 
 ## Provider Rate Limited
 
-Jobs may enter:
+Jobs can enter:
 
 ```text
 RETRY_WAIT
 ```
 
-VIGILOX respects provider retry behavior.
-
-Typical state:
+Typical flow:
 
 ```text
 PROVIDER_RATE_LIMITED
@@ -1555,7 +1558,7 @@ PROVIDER_RATE_LIMITED
 → bounded retry
 ```
 
-After all configured attempts are exhausted:
+When all configured attempts are exhausted:
 
 ```text
 FAILED
@@ -1564,21 +1567,48 @@ ATTEMPTS_EXHAUSTED
 
 may be returned.
 
-Provider quota and rate limits are external runtime constraints rather than application health failures.
+---
+
+## Cloudflare Tunnel Does Not Start
+
+Confirm the API first:
+
+```powershell
+Invoke-WebRequest http://127.0.0.1:8000/health -UseBasicParsing
+```
+
+Check Cloudflare connectivity:
+
+```powershell
+Test-NetConnection api.trycloudflare.com -Port 443
+Test-NetConnection region1.v2.argotunnel.com -Port 7844
+```
+
+If required:
+
+```powershell
+ipconfig /flushdns
+```
+
+Then start the tunnel again:
+
+```powershell
+.\cloudflared-windows-amd64.exe tunnel `
+  --protocol http2 `
+  --url http://127.0.0.1:8000
+```
 
 ---
 
 ## Original Document Does Not Display
 
-Test the source endpoint directly:
+Test:
 
 ```text
 /api/v1/documents/{document_id}/image
 ```
 
-If the source exists, the Document Workspace should render it as a same-origin image.
-
-If an older record genuinely has no source file, VIGILOX presents a controlled unavailable state.
+The Review Workspace loads the source image from this same-origin endpoint.
 
 ---
 
@@ -1586,12 +1616,10 @@ If an older record genuinely has no source file, VIGILOX presents a controlled u
 
 Confirm:
 
-- original source image loaded successfully
-- browser-reported image dimensions are available
-- evidence toggle is enabled
+- the original source image loaded
+- image dimensions are available
+- evidence display is enabled
 - OCR evidence IDs exist for the selected field
-
-Evidence overlays are only enabled when a usable source image is available.
 
 ---
 
@@ -1603,7 +1631,7 @@ AI output should be backed by source evidence.
 
 ## Fail Closed
 
-Ambiguous or unsupported outcomes must not silently become usable records.
+Ambiguous outcomes must not silently become usable final records.
 
 ## Immutable Machine Extraction
 
@@ -1615,11 +1643,11 @@ Browser sessions are not job queues.
 
 ## PostgreSQL as the System of Record
 
-Documents, analysis, jobs, reviews, and audit history remain durable.
+Documents, jobs, analysis, reviews, and audit history remain durable.
 
 ## No Invented Intelligence
 
-VIGILOX does not create unsupported:
+VIGILOX does not generate unsupported:
 
 - fraud probabilities
 - tamper probabilities
@@ -1628,55 +1656,63 @@ VIGILOX does not create unsupported:
 
 ## Human Oversight Where Uncertainty Matters
 
-Automation reduces reviewer workload without removing reviewer authority.
+Automation reduces reviewer workload while preserving reviewer authority.
 
 ---
 
 # Known Limitations
 
-Current known limitations include:
-
 - OCR processing is CPU-bound.
-- External AI processing remains subject to provider quota, rate limits, and availability.
-- Image-quality thresholds are calibrated on the available evaluation corpus rather than every possible real-world camera population.
-- Very small images may still contain readable text despite resolution warnings.
-- Large dark regions may affect simple overexposure measurements.
+- External AI processing depends on provider availability and quota.
+- Image-quality thresholds are calibrated on the available evaluation corpus.
 - OCR/evidence confidence does not measure semantic field-assignment correctness.
-- Some historical test records created before managed source persistence may not have an original source image.
-- Application-level rate limiting is process-local; deployment-level Nginx limiting provides the broader production boundary.
-- Docker configuration has been statically validated, but the final image/runtime stack must still be smoke-tested on a Docker-enabled deployment host.
+- Some historical test records created before managed-source persistence may not contain an original source image.
+- The Cloudflare deployment runs through the local VIGILOX services and PostgreSQL environment.
 
 ---
 
 # Documentation
 
-Additional architecture, deployment, operations, security, evaluation, and release documentation is maintained under:
+Additional technical and operational documentation is maintained under:
 
 ```text
 docs/
+├── api/
 ├── architecture/
 ├── deployment/
-├── operations/
-├── security/
 ├── evaluation/
-└── release/
+├── operations/
+├── release/
+└── security/
 ```
 
-The authoritative production-readiness report is maintained separately from this README.
+Important documents include:
+
+```text
+docs/architecture/overview.md
+docs/deployment/deployment.md
+docs/evaluation/evaluation.md
+docs/operations/backup-restore.md
+docs/operations/monitoring.md
+docs/operations/production-runbook.md
+docs/operations/shutdown.md
+docs/release/v1-production-readiness.md
+docs/security/security.md
+```
 
 ---
 
-# Future Improvements
+# 💻 Developer
 
-Potential future extensions include:
+### ALISHA SAJJAD
 
-- Additional credential types
-- External identity provider and enterprise SSO integration
-- Object-storage support
-- Distributed worker scaling
-- Expanded real-world evaluation corpus
-- Reviewer analytics
-- Multi-tenant organization support
+**AI Engineer · Python Developer · Generative AI & Agentic Systems Enthusiast**
+
+Developed and engineered the VIGILOX Document Intelligence platform, including its OCR pipeline, AI extraction workflow, evidence validation system, durable processing architecture, human review workflow, production-oriented backend, and web interface.
+
+**GitHub:**
+
+[github.com/alishasajjad](https://github.com/alishasajjad)
 
 ---
 
@@ -1694,23 +1730,22 @@ production document storage
 pending uploads
 ```
 
-Use synthetic or properly authorized documents for testing.
+Use synthetic or properly authorized documents for development and testing.
 
 ---
 
 # License
 
-This repository is intended for project-specific/private use unless a separate license is provided.
+VIGILOX is open-source software licensed under the [MIT License](LICENSE).
 
-Do not assume permission to redistribute security-related document data, evaluation fixtures, third-party assets, or uploaded user documents.
+You are free to use, modify, and distribute the software in accordance with the terms of the license.
 
+**Copyright © 2026 Alisha Sajjad**
 ---
 
 <div align="center">
 
-<img src="frontend/static/favicon.svg" alt="VIGILOX" width="54">
-
-## VIGILOX
+## 🛡️ VIGILOX
 
 **Document Intelligence with Evidence, Validation and Human Oversight**
 
@@ -1719,6 +1754,10 @@ Built with<br>
 
 <br>
 
-[Back to Top](#vigilox)
+**Developed by ALISHA SAJJAD**
+
+<br>
+
+[⬆ Back to Top](#️-vigilox)
 
 </div>
